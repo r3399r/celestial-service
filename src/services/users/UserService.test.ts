@@ -97,4 +97,10 @@ describe('UserService', () => {
 
     expect(mockDbService.putItem).toBeCalledTimes(1);
   });
+
+  it('updateUsers should work', async () => {
+    await userService.updateUsers([dummyDbUser, dummyDbUser]);
+
+    expect(mockDbService.putItem).toBeCalledTimes(2);
+  });
 });

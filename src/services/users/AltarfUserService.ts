@@ -1,10 +1,10 @@
 import { inject, injectable } from 'inversify';
-import { DbTeacherStudentPair, Role, User } from 'src/model/altarf/User';
+import _ from 'lodash';
+import { Role, User } from 'src/model/altarf/User';
 import { AltarfEntity } from 'src/model/DbKey';
 import { DbUser } from 'src/model/User';
 import { DbService } from 'src/services/DbService';
 import { UserService } from 'src/services/users/UserService';
-import { generateId } from 'src/util/generateId';
 import { Validator } from 'src/Validator';
 
 /**
@@ -62,25 +62,77 @@ export class AltarfUserService {
     if (teacher.role !== Role.TEACHER)
       throw new Error(`role of ${lineUserId} is not teacher`);
 
-    await Promise.all(
+    const students = await Promise.all(
       studentId.map(async (id: string) => {
         const user = await this.getUserById(id);
         if (user.role !== Role.STUDENT)
           throw new Error(`role of ${id} is not student`);
 
+        if (_(user.teachers).some(['teacherId', teacher.creationId]))
+          throw new Error(
+            `teacher ${teacher.creationId} already exists in student ${id}`
+          );
+
         return user;
       })
     );
 
-    await Promise.all(
-      studentId.map(async (id: string) => {
-        await this.dbService.putItem<DbTeacherStudentPair>({
-          projectEntity: AltarfEntity.teacherStudentPair,
-          creationId: generateId(),
-          teacherId: teacher.creationId,
-          studentId: id,
-        });
-      })
-    );
+    const initScore = [
+      {
+        field: '空間與形狀',
+        total: 0,
+        count: 0,
+      },
+      {
+        field: '數與量',
+        total: 0,
+        count: 0,
+      },
+      {
+        field: '資料與不確定性',
+        total: 0,
+        count: 0,
+      },
+      {
+        field: '代數',
+        total: 0,
+        count: 0,
+      },
+      {
+        field: '函數',
+        total: 0,
+        count: 0,
+      },
+      {
+        field: '坐標幾何',
+        total: 0,
+        count: 0,
+      },
+    ];
+
+    teacher.students = students.map((user: DbUser) => {
+      if (user.role !== Role.STUDENT) throw new Error('internal error');
+
+      const newTeacher = {
+        teacherId: teacher.creationId,
+        name: teacher.name,
+        classroom: teacher.classroom,
+        quizes: [],
+        score: initScore,
+      };
+      user.teachers =
+        user.teachers === undefined
+          ? [newTeacher]
+          : [...user.teachers, newTeacher];
+
+      return {
+        studentId: user.creationId,
+        name: user.name,
+        quizes: [],
+        score: initScore,
+      };
+    });
+
+    await this.userService.updateUsers([teacher, ...students]);
   }
 }

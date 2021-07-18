@@ -72,4 +72,14 @@ export class UserService {
 
     return dbUser;
   }
+
+  public async updateUsers(dbUsers: DbUser[]): Promise<DbUser[]> {
+    await Promise.all(
+      dbUsers.map(async (dbUser: DbUser) => {
+        await this.dbService.putItem<DbUser>(dbUser);
+      })
+    );
+
+    return dbUsers;
+  }
 }
