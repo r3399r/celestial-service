@@ -1,12 +1,15 @@
 import { bindings } from 'src/bindings';
 import {
+  DbQuiz,
   QuestionType,
+  QuizStatus,
   QuizValidateResponse,
   QuizValidateResponseStatus,
 } from 'src/model/altarf/Quiz';
 import { DbTeacherStudentPair, Role } from 'src/model/altarf/User';
 import { AltarfEntity } from 'src/model/DbKey';
 import { DbUser } from 'src/model/User';
+import { Validator } from 'src/Validator';
 import { DbService } from './DbService';
 import { GoogleSheetService } from './GoogleSheetService';
 import { QuizService } from './QuizService';
@@ -20,6 +23,7 @@ describe('QuizService', () => {
   let mockGooglesheetService: any;
   let mockAltarfUserService: any;
   let mockDbService: any;
+  let mockValidator: any;
   let dummyGoodQuestionRow: unknown[];
   let dummyGoodResult: QuizValidateResponse;
   let dummyBadQuestionRow: unknown[];
@@ -27,14 +31,22 @@ describe('QuizService', () => {
   let dummyDbTeacher: DbUser;
   let dummyDbStudent: DbUser;
   let dummyDbTeacherStudentPair: DbTeacherStudentPair;
+  let dummyDbQuiz: DbQuiz;
 
   beforeAll(() => {
+    dummyDbQuiz = {
+      projectEntity: AltarfEntity.quiz,
+      creationId: 'quiz',
+      owner: 'me',
+      label: 'aaa',
+      questions: [],
+    };
     dummyDbTeacherStudentPair = {
       projectEntity: AltarfEntity.teacherStudentPair,
       creationId: 'id',
       teacherId: 'teacher',
       studentId: 'student',
-      quizId: ['old'],
+      quizes: [{ quizId: 'old', status: QuizStatus.TODO, time: 10 }],
     };
     dummyGoodQuestionRow = [
       {
@@ -102,8 +114,12 @@ describe('QuizService', () => {
     };
     mockDbService = {
       putItem: jest.fn(),
-      getItem: jest.fn(),
+      getItem: jest.fn(() => dummyDbQuiz),
       query: jest.fn(() => [dummyDbTeacherStudentPair]),
+    };
+    mockValidator = {
+      validateAssignQuizParams: jest.fn(),
+      validateSaveQuizParams: jest.fn(),
     };
 
     bindings
@@ -113,25 +129,27 @@ describe('QuizService', () => {
       .rebind<AltarfUserService>(AltarfUserService)
       .toConstantValue(mockAltarfUserService);
     bindings.rebind<DbService>(DbService).toConstantValue(mockDbService);
+    bindings.rebind<Validator>(Validator).toConstantValue(mockValidator);
 
     quizService = bindings.get<QuizService>(QuizService);
   });
 
   it('save should return OK', async () => {
-    const res = await quizService.save('lineId', 'sheetId', {});
+    const res = await quizService.save('lineId', 'sheetId', { label: 'b' });
     expect(res.status).toBe(dummyGoodResult.status);
   });
 
   it('save should return NEED_MORE_WORK', async () => {
     mockGooglesheetService.getRows = jest.fn(() => dummyBadQuestionRow);
-    const res = await quizService.save('lineId', 'sheetId', {});
+    const res = await quizService.save('lineId', 'sheetId', { label: 'a' });
     expect(res.status).toBe(dummyBadResult.status);
   });
 
   it('assign should work', async () => {
     await quizService.assign('lineId', {
       studentId: ['student'],
-      quizId: 'quiz',
+      quizId: [dummyDbQuiz.creationId],
+      time: 12,
     });
     expect(mockDbService.putItem).toHaveBeenCalledTimes(1);
   });

@@ -1,4 +1,5 @@
 import { DbKey } from 'src/model/DbKey';
+import { Quiz } from './Quiz';
 
 export enum Role {
   STUDENT = 'student',
@@ -12,7 +13,7 @@ type UserCommon = {
   name: string;
 };
 
-export type Student = UserCommon & {
+type Student = UserCommon & {
   role: Role.STUDENT;
 };
 
@@ -31,7 +32,25 @@ export type UpdateUserParams = {
 type TeacherStudentPair = {
   teacherId: string;
   studentId: string;
-  quizId?: string[];
+  quizes?: Quiz[];
 };
 
 export type DbTeacherStudentPair = DbKey & TeacherStudentPair;
+
+export type MeTeacher = Teacher & {
+  id: string;
+  students: {
+    studentId: string;
+    name: string;
+    quizes?: (Quiz & { label: string })[];
+  }[];
+};
+
+export type MeStudent = Student & {
+  id: string;
+  teachers: {
+    teacherId: string;
+    name: string;
+    quizes?: (Quiz & { label: string })[];
+  }[];
+};

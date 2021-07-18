@@ -17,18 +17,20 @@ export async function me(
     const lineLoginService: LineLoginService = bindings.get<LineLoginService>(
       LineLoginService
     );
-
-    if (event.headers['x-api-line'] === undefined)
-      throw new Error('missing authentication token');
-    await lineLoginService.verifyToken(event.headers['x-api-line']);
-
     const meService: MeService = bindings.get<MeService>(MeService);
 
     let res: any;
 
     switch (event.httpMethod) {
       case 'GET':
-        res = await meService.getMe();
+        if (event.headers['x-api-line'] === undefined)
+          throw new Error('missing authentication token');
+
+        const lineUser = await lineLoginService.verifyAndGetUser(
+          event.headers['x-api-line']
+        );
+
+        res = await meService.getMe(lineUser.userId);
         break;
       default:
         throw new Error('unknown http method');

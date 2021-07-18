@@ -7,6 +7,12 @@ export enum QuestionType {
   FILL_IN_BLANK = 'B',
 }
 
+export enum QuizStatus {
+  TODO = 'todo',
+  TESTING = 'testing',
+  DONE = 'done',
+}
+
 export enum QuizValidateResponseStatus {
   OK = 'OK',
   NEED_MORE_WORK = 'NEED_MORE_WORK',
@@ -22,7 +28,7 @@ export type QuizValidateResponse = {
   content: QuizValidate[];
 };
 
-export type Quiz = {
+export type QuizRow = {
   question?: string;
   type?: QuestionType;
   options?: string;
@@ -31,19 +37,26 @@ export type Quiz = {
   field?: string;
 };
 
-export type QuizRow = GoogleSpreadsheetRow & Quiz;
+export type SpreadsheetQuizRow = GoogleSpreadsheetRow & QuizRow;
 
 export type DbQuiz = DbKey & {
   owner: string;
   label: string;
-  questions: Quiz[];
+  questions: QuizRow[];
 };
 
 export type SaveQuizParams = {
-  label?: string;
+  label: string;
 };
 
 export type AssignQuizParams = {
   studentId: string[];
+  quizId: string[];
+  time: number;
+};
+
+export type Quiz = {
   quizId: string;
+  status: QuizStatus;
+  time: number;
 };

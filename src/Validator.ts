@@ -1,6 +1,8 @@
 import { inject, injectable } from 'inversify';
+import { AssignQuizParams, SaveQuizParams } from 'src/model/altarf/Quiz';
 import { UpdateUserParams, User as AltarfUser } from 'src/model/altarf/User';
 import { AltarfEntity, DbKey, SadalsuudEntity } from 'src/model/DbKey';
+import { DbSign, Sign } from 'src/model/sadalsuud/Sign';
 import { DbStar, Star } from 'src/model/sadalsuud/Star';
 import { StarPair } from 'src/model/sadalsuud/StarPair';
 import { DbTrip, Trip } from 'src/model/sadalsuud/Trip';
@@ -9,8 +11,7 @@ import {
   User as SadalsuudUser,
 } from 'src/model/sadalsuud/User';
 import { DbUser } from 'src/model/User';
-import { DbSign, Sign } from './model/sadalsuud/Sign';
-import { DbService } from './services/DbService';
+import { DbService } from 'src/services/DbService';
 
 /**
  * Validator for lambda input
@@ -243,5 +244,28 @@ export class Validator {
           `role of user ${participant} is not ${SadalsuudRole.STAR_RAIN}`
         );
     }
+  }
+
+  public validateSaveQuizParams(params: SaveQuizParams): void {
+    if (params.label === undefined) throw new Error('label is missing');
+    if (typeof params.label !== 'string')
+      throw new Error('label should be string');
+  }
+
+  public validateAssignQuizParams(params: AssignQuizParams): void {
+    if (params.quizId === undefined) throw new Error('quizId is missing');
+    if (params.studentId === undefined)
+      throw new Error('shtudentId is missing');
+    if (params.time === undefined) throw new Error('time is missing');
+
+    if (Array.isArray(params.quizId) === false)
+      throw new Error('quizId should be an array');
+    if (Array.isArray(params.studentId) === false)
+      throw new Error('sutdentId should be an array');
+    if (typeof params.time !== 'number')
+      throw new Error('time should be number');
+
+    if (params.quizId.length < 1) throw new Error('empty quizId');
+    if (params.studentId.length < 1) throw new Error('empty studentId');
   }
 }

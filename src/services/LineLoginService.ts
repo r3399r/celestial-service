@@ -26,7 +26,7 @@ export class LineLoginService {
     return res.data;
   }
 
-  public async verifyToken(lineAccessToken: string): Promise<void> {
+  private async verifyToken(lineAccessToken: string): Promise<void> {
     const url: string = 'https://api.line.me/oauth2/v2.1/verify';
     const params = {
       access_token: lineAccessToken,

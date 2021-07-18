@@ -6,10 +6,12 @@ import {
   QuestionType,
   Quiz,
   QuizRow,
+  QuizStatus,
   QuizValidate,
   QuizValidateResponse,
   QuizValidateResponseStatus,
   SaveQuizParams,
+  SpreadsheetQuizRow,
 } from 'src/model/altarf/Quiz';
 import { DbTeacherStudentPair, Role } from 'src/model/altarf/User';
 import { AltarfEntity } from 'src/model/DbKey';
@@ -17,6 +19,7 @@ import { DbUser } from 'src/model/User';
 import { GoogleSheetService } from 'src/services/GoogleSheetService';
 import { AltarfUserService } from 'src/services/users/AltarfUserService';
 import { generateId } from 'src/util/generateId';
+import { Validator } from 'src/Validator';
 import { DbService } from './DbService';
 
 export const spreadsheetBindingId: symbol = Symbol('spreadsheetId');
@@ -32,7 +35,10 @@ export class QuizService {
   @inject(DbService)
   private readonly dbService!: DbService;
 
-  private async getQuiz(quizId: string): Promise<DbQuiz> {
+  @inject(Validator)
+  private readonly validator!: Validator;
+
+  public async getQuiz(quizId: string): Promise<DbQuiz> {
     const dbQuiz = await this.dbService.getItem<DbQuiz>({
       projectEntity: AltarfEntity.quiz,
       creationId: quizId,
@@ -42,15 +48,44 @@ export class QuizService {
     return dbQuiz;
   }
 
+  public async getQuizByOwner(owner: string): Promise<DbQuiz[]> {
+    return await this.dbService.query<DbQuiz>(AltarfEntity.quiz, [
+      {
+        key: 'owner',
+        value: owner,
+      },
+    ]);
+  }
+
+  public async getPairByTeacherId(id: string): Promise<DbTeacherStudentPair[]> {
+    return await this.dbService.query<DbTeacherStudentPair>(
+      AltarfEntity.teacherStudentPair,
+      [{ key: 'teacherId', value: id }]
+    );
+  }
+
+  public async getPairByStudentId(id: string): Promise<DbTeacherStudentPair[]> {
+    return await this.dbService.query<DbTeacherStudentPair>(
+      AltarfEntity.teacherStudentPair,
+      [{ key: 'studentId', value: id }]
+    );
+  }
+
   public async assign(
     lineUserId: string,
     params: AssignQuizParams
   ): Promise<void> {
+    this.validator.validateAssignQuizParams(params);
+
     const teacher = await this.userService.getUserByLineId(lineUserId);
     if (teacher.role !== Role.TEACHER)
       throw new Error(`role of ${lineUserId} is not teacher`);
 
-    await this.getQuiz(params.quizId);
+    await Promise.all(
+      params.quizId.map(async (id: string) => {
+        await this.getQuiz(id);
+      })
+    );
 
     const dbTeacherStudentPair = await Promise.all(
       params.studentId.map(async (id: string) => {
@@ -58,23 +93,20 @@ export class QuizService {
         if (user.role !== Role.STUDENT)
           throw new Error(`role of ${id} is not student`);
 
-        const pair = await this.dbService.query<DbTeacherStudentPair>(
-          AltarfEntity.teacherStudentPair,
-          [
-            { key: 'teacherId', value: teacher.creationId },
-            { key: 'studentId', value: id },
-          ]
-        );
+        const pair = await this.getPairByStudentId(id);
+
         if (pair.length === 0) throw new Error('pair does not exist');
         if (pair.length > 1) throw new Error('pair should be unique');
 
-        if (
-          pair[0].quizId !== undefined &&
-          pair[0].quizId.includes(params.quizId)
-        )
-          throw new Error(
-            `quiz ${params.quizId} has already assigned to student ${id}`
+        if (pair[0].quizes !== undefined) {
+          const sameQuiz = pair[0].quizes.filter((x: Quiz) =>
+            params.quizId.includes(x.quizId)
           );
+          if (sameQuiz.length > 0)
+            throw new Error(
+              `quiz ${sameQuiz[0].quizId} has already assigned to student ${id}`
+            );
+        }
 
         return pair[0];
       })
@@ -82,13 +114,23 @@ export class QuizService {
 
     await Promise.all(
       dbTeacherStudentPair.map(async (pair: DbTeacherStudentPair) => {
-        await this.dbService.putItem<DbTeacherStudentPair>({
-          ...pair,
-          quizId:
-            pair.quizId === undefined
-              ? [params.quizId]
-              : [...pair.quizId, params.quizId],
-        });
+        await Promise.all(
+          params.quizId.map(async (id: string) => {
+            const newQuiz: Quiz = {
+              quizId: id,
+              status: QuizStatus.TODO,
+              time: params.time,
+            };
+
+            return await this.dbService.putItem<DbTeacherStudentPair>({
+              ...pair,
+              quizes:
+                pair.quizes === undefined
+                  ? [newQuiz]
+                  : [...pair.quizes, newQuiz],
+            });
+          })
+        );
       })
     );
   }
@@ -98,20 +140,24 @@ export class QuizService {
     sheetId: string,
     params: SaveQuizParams
   ): Promise<QuizValidateResponse> {
+    this.validator.validateSaveQuizParams(params);
+
     const dbUser = await this.userService.getUserByLineId(lineUserId);
     this.bindSpreadsheetId(dbUser);
 
     const googleSheetService = bindings.get<GoogleSheetService>(
       GoogleSheetService
     );
-    const rows = (await googleSheetService.getRows(sheetId)) as QuizRow[];
+    const rows = (await googleSheetService.getRows(
+      sheetId
+    )) as SpreadsheetQuizRow[];
 
     const validateResult = this.validate(rows);
     if (validateResult.status === QuizValidateResponseStatus.NEED_MORE_WORK)
       return validateResult;
 
     const questions = rows.map(
-      (v: QuizRow): Quiz => {
+      (v: SpreadsheetQuizRow): QuizRow => {
         return {
           question: v.question,
           type: v.type,
@@ -128,7 +174,7 @@ export class QuizService {
       projectEntity: AltarfEntity.quiz,
       creationId,
       owner: dbUser.creationId,
-      label: params.label === undefined ? creationId : params.label,
+      label: params.label,
       questions,
     };
 
