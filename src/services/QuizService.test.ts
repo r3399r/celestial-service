@@ -2,11 +2,10 @@ import { bindings } from 'src/bindings';
 import {
   DbQuiz,
   QuestionType,
-  QuizStatus,
   QuizValidateResponse,
   QuizValidateResponseStatus,
 } from 'src/model/altarf/Quiz';
-import { DbTeacherStudentPair, Role } from 'src/model/altarf/User';
+import { Role } from 'src/model/altarf/User';
 import { AltarfEntity } from 'src/model/DbKey';
 import { DbUser } from 'src/model/User';
 import { Validator } from 'src/Validator';
@@ -30,7 +29,6 @@ describe('QuizService', () => {
   let dummyBadResult: QuizValidateResponse;
   let dummyDbTeacher: DbUser;
   let dummyDbStudent: DbUser;
-  let dummyDbTeacherStudentPair: DbTeacherStudentPair;
   let dummyDbQuiz: DbQuiz;
 
   beforeAll(() => {
@@ -40,13 +38,6 @@ describe('QuizService', () => {
       owner: 'me',
       label: 'aaa',
       questions: [],
-    };
-    dummyDbTeacherStudentPair = {
-      projectEntity: AltarfEntity.teacherStudentPair,
-      creationId: 'id',
-      teacherId: 'teacher',
-      studentId: 'student',
-      quizes: [{ quizId: 'old', status: QuizStatus.TODO, time: 10 }],
     };
     dummyGoodQuestionRow = [
       {
@@ -134,7 +125,6 @@ describe('QuizService', () => {
       putItem: jest.fn(),
       putItems: jest.fn(),
       getItem: jest.fn(() => dummyDbQuiz),
-      query: jest.fn(() => [dummyDbTeacherStudentPair]),
     };
     mockValidator = {
       validateAssignQuizParams: jest.fn(),

@@ -14,7 +14,6 @@ import {
   SpreadsheetQuizRow,
 } from 'src/model/altarf/Quiz';
 import {
-  DbTeacherStudentPair,
   QuizInfoInUser,
   Role,
   StudentInfoInTeacher,
@@ -44,7 +43,7 @@ export class QuizService {
   @inject(Validator)
   private readonly validator!: Validator;
 
-  public async getQuiz(quizId: string): Promise<DbQuiz> {
+  private async getQuiz(quizId: string): Promise<DbQuiz> {
     const dbQuiz = await this.dbService.getItem<DbQuiz>({
       projectEntity: AltarfEntity.quiz,
       creationId: quizId,
@@ -52,29 +51,6 @@ export class QuizService {
     if (dbQuiz === null) throw new Error(`quiz ${quizId} does not exist`);
 
     return dbQuiz;
-  }
-
-  public async getQuizByOwner(owner: string): Promise<DbQuiz[]> {
-    return await this.dbService.query<DbQuiz>(AltarfEntity.quiz, [
-      {
-        key: 'owner',
-        value: owner,
-      },
-    ]);
-  }
-
-  public async getPairByTeacherId(id: string): Promise<DbTeacherStudentPair[]> {
-    return await this.dbService.query<DbTeacherStudentPair>(
-      AltarfEntity.teacherStudentPair,
-      [{ key: 'teacherId', value: id }]
-    );
-  }
-
-  public async getPairByStudentId(id: string): Promise<DbTeacherStudentPair[]> {
-    return await this.dbService.query<DbTeacherStudentPair>(
-      AltarfEntity.teacherStudentPair,
-      [{ key: 'studentId', value: id }]
-    );
   }
 
   public async assign(

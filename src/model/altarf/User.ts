@@ -1,5 +1,4 @@
-import { DbKey } from 'src/model/DbKey';
-import { OldQuiz, QuizStatus } from './Quiz';
+import { QuizStatus } from './Quiz';
 
 export enum Role {
   STUDENT = 'student',
@@ -60,30 +59,4 @@ export type UpdateUserParams = {
   name?: string;
   spreadsheetId?: string;
   classroom?: string;
-};
-
-type TeacherStudentPair = {
-  teacherId: string;
-  studentId: string;
-  quizes?: OldQuiz[];
-};
-
-export type DbTeacherStudentPair = DbKey & TeacherStudentPair;
-
-export type MeTeacher = Teacher & {
-  id: string;
-  students: {
-    studentId: string;
-    name: string;
-    quizes?: (OldQuiz & { label: string })[];
-  }[];
-};
-
-export type MeStudent = Student & {
-  id: string;
-  teachers: {
-    teacherId: string;
-    name: string;
-    quizes?: (OldQuiz & { label: string })[];
-  }[];
 };

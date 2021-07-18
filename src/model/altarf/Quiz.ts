@@ -55,9 +55,3 @@ export type AssignQuizParams = {
   quizId: string[];
   time: number;
 };
-
-export type OldQuiz = {
-  quizId: string;
-  status: QuizStatus;
-  time: number;
-};

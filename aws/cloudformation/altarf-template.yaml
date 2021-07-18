@@ -63,7 +63,7 @@ Resources:
                 },
                 "x-amazon-apigateway-integration": {
                   "httpMethod": "POST",
-                  "uri": "arn:aws:apigateway:ap-northeast-1:lambda:path/2015-03-31/functions/arn:aws:lambda:ap-northeast-1:278497686406:function:dev-me/invocations",
+                  "uri": !Sub "arn:aws:apigateway:ap-northeast-1:lambda:path/2015-03-31/functions/arn:aws:lambda:ap-northeast-1:278497686406:function:${TargetEnvr}-altarf-me/invocations",
                   "responses": {
                     "default": {
                       "statusCode": "200",
@@ -146,7 +146,7 @@ Resources:
                 "x-amazon-apigateway-integration": {
                   "type": "aws_proxy",
                   "httpMethod": "POST",
-                  "uri": "arn:aws:apigateway:ap-northeast-1:lambda:path/2015-03-31/functions/arn:aws:lambda:ap-northeast-1:278497686406:function:dev-altarf-quizAssign/invocations",
+                  "uri": !Sub "arn:aws:apigateway:ap-northeast-1:lambda:path/2015-03-31/functions/arn:aws:lambda:ap-northeast-1:278497686406:function:${TargetEnvr}-altarf-quizAssign/invocations",
                   "responses": {
                     "default": {
                       "statusCode": "200"
@@ -579,18 +579,20 @@ Resources:
     Properties:
       Handler: index.me
       Runtime: !Sub ${NodeJsVer}
-      FunctionName: !Sub ${TargetEnvr}-me
+      FunctionName: !Sub ${TargetEnvr}-altaf-me
       Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/${LambdaExecutionRole}"
       CodeUri: ../../dist/webpack/lambda
       MemorySize: 128
       Environment:
         Variables:
           ENVR: !Sub ${TargetEnvr}
+          ENTITY: altarf-user
+          LINE_LOGIN_ID: !Sub '{{resolve:ssm:${TargetEnvr}-altarf-login-id:1}}'
   InvokePermissionMe:
     Type: AWS::Lambda::Permission
     DependsOn: [ServerlessApi, LambdaMe]
     Properties:
-        FunctionName: !Sub ${TargetEnvr}-me
+        FunctionName: !Sub ${TargetEnvr}-altarf-me
         Action: lambda:InvokeFunction
         Principal: apigateway.amazonaws.com
         SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ServerlessApi}/*

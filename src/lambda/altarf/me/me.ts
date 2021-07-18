@@ -1,5 +1,6 @@
 import { bindings } from 'src/bindings';
 import { LambdaContext } from 'src/lambda/LambdaContext';
+import { DbUser } from 'src/model/User';
 import { LineLoginService } from 'src/services/LineLoginService';
 import { MeService } from 'src/services/MeService';
 import {
@@ -19,7 +20,7 @@ export async function me(
     );
     const meService: MeService = bindings.get<MeService>(MeService);
 
-    let res: any;
+    let res: DbUser;
 
     switch (event.httpMethod) {
       case 'GET':
