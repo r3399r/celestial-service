@@ -39,11 +39,12 @@ export type QuizRow = {
 
 export type SpreadsheetQuizRow = GoogleSpreadsheetRow & QuizRow;
 
-export type DbQuiz = DbKey & {
+export type Quiz = {
   owner: string;
   label: string;
   questions: QuizRow[];
 };
+export type DbQuiz = DbKey & Quiz;
 
 export type SaveQuizParams = {
   label: string;
@@ -55,7 +56,7 @@ export type AssignQuizParams = {
   time: number;
 };
 
-export type Quiz = {
+export type OldQuiz = {
   quizId: string;
   status: QuizStatus;
   time: number;

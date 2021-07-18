@@ -97,6 +97,14 @@ describe('QuizService', () => {
       role: Role.TEACHER,
       spreadsheetId: '12345',
       classroom: 'cccc',
+      students: [
+        {
+          studentId: 'studentId',
+          name: 'aaa',
+          quizes: [],
+          score: [],
+        },
+      ],
     };
     dummyDbStudent = {
       projectEntity: AltarfEntity.user,
@@ -104,6 +112,15 @@ describe('QuizService', () => {
       lineUserId: 'lineId',
       name: 'student',
       role: Role.STUDENT,
+      teachers: [
+        {
+          teacherId: 'teacherId',
+          classroom: 'ccc',
+          name: 'aaa',
+          quizes: [],
+          score: [],
+        },
+      ],
     };
   });
 
@@ -115,6 +132,7 @@ describe('QuizService', () => {
     };
     mockDbService = {
       putItem: jest.fn(),
+      putItems: jest.fn(),
       getItem: jest.fn(() => dummyDbQuiz),
       query: jest.fn(() => [dummyDbTeacherStudentPair]),
     };
@@ -148,10 +166,82 @@ describe('QuizService', () => {
 
   it('assign should work', async () => {
     await quizService.assign('lineId', {
-      studentId: ['student'],
+      studentId: ['studentId'],
       quizId: [dummyDbQuiz.creationId],
       time: 12,
     });
-    expect(mockDbService.putItem).toHaveBeenCalledTimes(1);
+    expect(mockDbService.putItems).toHaveBeenCalledTimes(1);
+  });
+
+  it('assign should fail with wrong role', async () => {
+    mockAltarfUserService.getUserById = jest.fn(() => dummyDbTeacher);
+
+    await expect(
+      quizService.assign('lineId', {
+        studentId: ['studentId'],
+        quizId: [dummyDbQuiz.creationId],
+        time: 12,
+      })
+    ).rejects.toThrow('role of studentId is not student');
+
+    mockAltarfUserService.getUserByLineId = jest.fn(() => dummyDbStudent);
+    mockAltarfUserService.getUserById = jest.fn(() => dummyDbStudent);
+
+    await expect(
+      quizService.assign('lineId', {
+        studentId: ['studentId'],
+        quizId: [dummyDbQuiz.creationId],
+        time: 12,
+      })
+    ).rejects.toThrow('role of lineId is not teacher');
+  });
+
+  it('assign should fail if teacher does not teach input student', async () => {
+    mockAltarfUserService.getUserByLineId = jest.fn(() => ({
+      ...dummyDbTeacher,
+      students: [
+        {
+          studentId: 'studentIdaa',
+          name: 'aaa',
+          quizes: [],
+          score: [],
+        },
+      ],
+    }));
+
+    await expect(
+      quizService.assign('lineId', {
+        studentId: ['student'],
+        quizId: [dummyDbQuiz.creationId],
+        time: 12,
+      })
+    ).rejects.toThrow(
+      `teacher ${dummyDbTeacher.creationId} does not teach student student`
+    );
+  });
+
+  it('assign should fail if quiz has been assigned to student', async () => {
+    mockAltarfUserService.getUserById = jest.fn(() => ({
+      ...dummyDbStudent,
+      teachers: [
+        {
+          teacherId: 'teacherId',
+          classroom: 'ccc',
+          name: 'aaa',
+          quizes: [{ quizId: 'quiz' }],
+          score: [],
+        },
+      ],
+    }));
+
+    await expect(
+      quizService.assign('lineId', {
+        studentId: ['studentId'],
+        quizId: [dummyDbQuiz.creationId],
+        time: 12,
+      })
+    ).rejects.toThrow(
+      `student studentId has already assigned quiz ${dummyDbQuiz.creationId}`
+    );
   });
 });

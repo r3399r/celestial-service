@@ -1,5 +1,5 @@
 import { DbKey } from 'src/model/DbKey';
-import { Quiz } from './Quiz';
+import { OldQuiz, QuizStatus } from './Quiz';
 
 export enum Role {
   STUDENT = 'student',
@@ -13,16 +13,19 @@ type UserCommon = {
   name: string;
 };
 
-type TeacherInfoInStudent = {
+export type QuizInfoInUser = {
+  quizId: string;
+  label: string;
+  time: number;
+  status: QuizStatus;
+  startTime: number | null;
+};
+
+export type TeacherInfoInStudent = {
   teacherId: string;
   name: string;
   classroom: string;
-  quizes: {
-    quizId: string;
-    label: string;
-    time: number;
-    status: string;
-  }[];
+  quizes: QuizInfoInUser[];
   score: {
     field: string;
     total: number;
@@ -35,15 +38,10 @@ type Student = UserCommon & {
   teachers?: TeacherInfoInStudent[];
 };
 
-type StudentInfoInTeacher = {
+export type StudentInfoInTeacher = {
   studentId: string;
   name: string;
-  quizes: {
-    quizId: string;
-    label: string;
-    time: number;
-    status: string;
-  }[];
+  quizes: QuizInfoInUser[];
   score: {
     field: string;
     total: number;
@@ -67,7 +65,7 @@ export type UpdateUserParams = {
 type TeacherStudentPair = {
   teacherId: string;
   studentId: string;
-  quizes?: Quiz[];
+  quizes?: OldQuiz[];
 };
 
 export type DbTeacherStudentPair = DbKey & TeacherStudentPair;
@@ -77,7 +75,7 @@ export type MeTeacher = Teacher & {
   students: {
     studentId: string;
     name: string;
-    quizes?: (Quiz & { label: string })[];
+    quizes?: (OldQuiz & { label: string })[];
   }[];
 };
 
@@ -86,6 +84,6 @@ export type MeStudent = Student & {
   teachers: {
     teacherId: string;
     name: string;
-    quizes?: (Quiz & { label: string })[];
+    quizes?: (OldQuiz & { label: string })[];
   }[];
 };

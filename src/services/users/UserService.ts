@@ -74,11 +74,7 @@ export class UserService {
   }
 
   public async updateUsers(dbUsers: DbUser[]): Promise<DbUser[]> {
-    await Promise.all(
-      dbUsers.map(async (dbUser: DbUser) => {
-        await this.dbService.putItem<DbUser>(dbUser);
-      })
-    );
+    await this.dbService.putItems<DbUser>(dbUsers);
 
     return dbUsers;
   }

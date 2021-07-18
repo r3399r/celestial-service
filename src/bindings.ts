@@ -45,16 +45,15 @@ container.bind<Client>(Client).toDynamicValue(
 );
 container
   .bind<GoogleSpreadsheet>(GoogleSpreadsheet)
-  .toDynamicValue((context: interfaces.Context) => {
-    return new GoogleSpreadsheet(context.container.get(spreadsheetBindingId));
-  });
+  .toDynamicValue(
+    (context: interfaces.Context) =>
+      new GoogleSpreadsheet(context.container.get(spreadsheetBindingId))
+  );
 
 // validator
 container.bind<Validator>(Validator).toSelf();
 
 // AWS
-container
-  .bind<DynamoDB>(DynamoDB)
-  .toDynamicValue((): DynamoDB => new DynamoDB());
+container.bind<DynamoDB>(DynamoDB).toDynamicValue(() => new DynamoDB());
 
 export { container as bindings };

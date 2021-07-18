@@ -1,10 +1,10 @@
 import { inject, injectable } from 'inversify';
+import _ from 'lodash';
 import { bindings } from 'src/bindings';
 import {
   AssignQuizParams,
   DbQuiz,
   QuestionType,
-  Quiz,
   QuizRow,
   QuizStatus,
   QuizValidate,
@@ -13,7 +13,13 @@ import {
   SaveQuizParams,
   SpreadsheetQuizRow,
 } from 'src/model/altarf/Quiz';
-import { DbTeacherStudentPair, Role } from 'src/model/altarf/User';
+import {
+  DbTeacherStudentPair,
+  QuizInfoInUser,
+  Role,
+  StudentInfoInTeacher,
+  TeacherInfoInStudent,
+} from 'src/model/altarf/User';
 import { AltarfEntity } from 'src/model/DbKey';
 import { DbUser } from 'src/model/User';
 import { GoogleSheetService } from 'src/services/GoogleSheetService';
@@ -81,58 +87,65 @@ export class QuizService {
     if (teacher.role !== Role.TEACHER)
       throw new Error(`role of ${lineUserId} is not teacher`);
 
-    await Promise.all(
-      params.quizId.map(async (id: string) => {
-        await this.getQuiz(id);
-      })
-    );
-
-    const dbTeacherStudentPair = await Promise.all(
+    const students = await Promise.all(
       params.studentId.map(async (id: string) => {
         const user = await this.userService.getUserById(id);
         if (user.role !== Role.STUDENT)
           throw new Error(`role of ${id} is not student`);
 
-        const pair = await this.getPairByStudentId(id);
-
-        if (pair.length === 0) throw new Error('pair does not exist');
-        if (pair.length > 1) throw new Error('pair should be unique');
-
-        if (pair[0].quizes !== undefined) {
-          const sameQuiz = pair[0].quizes.filter((x: Quiz) =>
-            params.quizId.includes(x.quizId)
+        if (!_(teacher.students).some(['studentId', id]))
+          throw new Error(
+            `teacher ${teacher.creationId} does not teach student ${id}`
           );
-          if (sameQuiz.length > 0)
+
+        const teacherId = _(user.teachers).findIndex(
+          (o: TeacherInfoInStudent) => o.teacherId === teacher.creationId
+        );
+
+        if (user.teachers === undefined) throw new Error('internal error');
+        for (const quizId of params.quizId) {
+          const myQuiz = user.teachers[teacherId].quizes.map(
+            (quiz: QuizInfoInUser) => quiz.quizId
+          );
+          if (myQuiz.includes(quizId))
             throw new Error(
-              `quiz ${sameQuiz[0].quizId} has already assigned to student ${id}`
+              `student ${user.creationId} has already assigned quiz ${quizId}`
             );
         }
 
-        return pair[0];
+        return user;
       })
     );
 
-    await Promise.all(
-      dbTeacherStudentPair.map(async (pair: DbTeacherStudentPair) => {
-        await Promise.all(
-          params.quizId.map(async (id: string) => {
-            const newQuiz: Quiz = {
-              quizId: id,
-              status: QuizStatus.TODO,
-              time: params.time,
-            };
-
-            return await this.dbService.putItem<DbTeacherStudentPair>({
-              ...pair,
-              quizes:
-                pair.quizes === undefined
-                  ? [newQuiz]
-                  : [...pair.quizes, newQuiz],
-            });
-          })
-        );
-      })
+    const quizes: DbQuiz[] = await Promise.all(
+      params.quizId.map(async (id: string) => await this.getQuiz(id))
     );
+
+    students.map((student: DbUser) => {
+      if (student.role !== Role.STUDENT) throw new Error('internal error');
+      if (student.teachers === undefined) throw new Error('internal error');
+      if (teacher.students === undefined) throw new Error('internal error');
+
+      const studentId = _(teacher.students).findIndex(
+        (o: StudentInfoInTeacher) => o.studentId === student.creationId
+      );
+      const teacherId = _(student.teachers).findIndex(
+        (o: TeacherInfoInStudent) => o.teacherId === teacher.creationId
+      );
+      for (const quiz of quizes) {
+        const quizInfo = {
+          quizId: quiz.creationId,
+          label: quiz.label,
+          time: params.time,
+          status: QuizStatus.TODO,
+          startTime: null,
+        };
+        teacher.students[studentId].quizes.push(quizInfo);
+        student.teachers[teacherId].quizes.push(quizInfo);
+      }
+    });
+
+    await this.dbService.putItems<DbUser>([teacher, ...students]);
   }
 
   public async save(
@@ -157,16 +170,14 @@ export class QuizService {
       return validateResult;
 
     const questions = rows.map(
-      (v: SpreadsheetQuizRow): QuizRow => {
-        return {
-          question: v.question,
-          type: v.type,
-          options: v.options,
-          answer: v.answer,
-          image: v.image,
-          field: v.field,
-        };
-      }
+      (v: SpreadsheetQuizRow): QuizRow => ({
+        question: v.question,
+        type: v.type,
+        options: v.options,
+        answer: v.answer,
+        image: v.image,
+        field: v.field,
+      })
     );
 
     const creationId: string = generateId();

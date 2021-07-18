@@ -1,5 +1,5 @@
 import { inject, injectable } from 'inversify';
-import { Quiz } from 'src/model/altarf/Quiz';
+import { OldQuiz } from 'src/model/altarf/Quiz';
 import { DbTeacherStudentPair, Role } from 'src/model/altarf/User';
 import { QuizService } from './QuizService';
 import { AltarfUserService } from './users/AltarfUserService';
@@ -27,16 +27,18 @@ export class MeService {
           ): Promise<{
             studentId: string;
             name: string;
-            quizes?: (Quiz & { label: string })[];
+            quizes?: (OldQuiz & { label: string })[];
           }> => {
             const student = await this.userService.getUserById(v.studentId);
 
-            let quizes: (Quiz & { label: string })[];
+            let quizes: (OldQuiz & { label: string })[];
             if (v.quizes === undefined) quizes = [];
             else
               quizes = await Promise.all(
                 v.quizes.map(
-                  async (quiz: Quiz): Promise<Quiz & { label: string }> => {
+                  async (
+                    quiz: OldQuiz
+                  ): Promise<OldQuiz & { label: string }> => {
                     const thisQuiz = await this.quizService.getQuiz(
                       quiz.quizId
                     );
@@ -78,16 +80,18 @@ export class MeService {
           ): Promise<{
             teacherId: string;
             name: string;
-            quizes?: (Quiz & { label: string })[];
+            quizes?: (OldQuiz & { label: string })[];
           }> => {
             const teacher = await this.userService.getUserById(v.teacherId);
 
-            let quizes: (Quiz & { label: string })[];
+            let quizes: (OldQuiz & { label: string })[];
             if (v.quizes === undefined) quizes = [];
             else
               quizes = await Promise.all(
                 v.quizes.map(
-                  async (quiz: Quiz): Promise<Quiz & { label: string }> => {
+                  async (
+                    quiz: OldQuiz
+                  ): Promise<OldQuiz & { label: string }> => {
                     const thisQuiz = await this.quizService.getQuiz(
                       quiz.quizId
                     );

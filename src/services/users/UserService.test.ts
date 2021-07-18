@@ -34,6 +34,7 @@ describe('UserService', () => {
   beforeEach(() => {
     mockDbService = {
       putItem: jest.fn(),
+      putItems: jest.fn(),
       getItem: jest.fn(() => dummyDbUser),
     };
     mockValidator = { validateUser: jest.fn() };
@@ -101,6 +102,6 @@ describe('UserService', () => {
   it('updateUsers should work', async () => {
     await userService.updateUsers([dummyDbUser, dummyDbUser]);
 
-    expect(mockDbService.putItem).toBeCalledTimes(2);
+    expect(mockDbService.putItems).toBeCalledTimes(1);
   });
 });
