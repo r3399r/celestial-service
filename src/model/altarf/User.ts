@@ -13,14 +13,49 @@ type UserCommon = {
   name: string;
 };
 
+type TeacherInfoInStudent = {
+  teacherId: string;
+  name: string;
+  classroom: string;
+  quizes: {
+    quizId: string;
+    label: string;
+    time: number;
+    status: string;
+  }[];
+  score: {
+    field: string;
+    total: number;
+    count: number;
+  }[];
+};
+
 type Student = UserCommon & {
   role: Role.STUDENT;
+  teachers?: TeacherInfoInStudent[];
+};
+
+type StudentInfoInTeacher = {
+  studentId: string;
+  name: string;
+  quizes: {
+    quizId: string;
+    label: string;
+    time: number;
+    status: string;
+  }[];
+  score: {
+    field: string;
+    total: number;
+    count: number;
+  }[];
 };
 
 type Teacher = UserCommon & {
   role: Role.TEACHER;
-  spreadsheetId?: string;
-  classroom?: string;
+  spreadsheetId: string;
+  classroom: string;
+  students?: StudentInfoInTeacher[];
 };
 
 export type UpdateUserParams = {

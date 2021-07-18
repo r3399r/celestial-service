@@ -15,7 +15,6 @@ export { stock } from 'src/lambda/stock/stock';
 export { trips } from 'src/lambda/trips/trips';
 export { users } from 'src/lambda/users/users';
 export { users as altarfUsers } from 'src/lambda/altarf/users/users';
-export { userSwitch } from 'src/lambda/altarf/userSwitch/userSwitch';
 export { myStudents } from 'src/lambda/altarf/myStudents/myStudents';
 export { quiz } from 'src/lambda/altarf/quiz/quiz';
 export { quizAssign } from 'src/lambda/altarf/quizAssign/quizAssign';

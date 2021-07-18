@@ -1,7 +1,11 @@
 import { inject, injectable } from 'inversify';
 import { AssignQuizParams, SaveQuizParams } from 'src/model/altarf/Quiz';
-import { UpdateUserParams, User as AltarfUser } from 'src/model/altarf/User';
-import { AltarfEntity, DbKey, SadalsuudEntity } from 'src/model/DbKey';
+import {
+  Role as AltarfRole,
+  UpdateUserParams,
+  User as AltarfUser,
+} from 'src/model/altarf/User';
+import { DbKey, SadalsuudEntity } from 'src/model/DbKey';
 import { DbSign, Sign } from 'src/model/sadalsuud/Sign';
 import { DbStar, Star } from 'src/model/sadalsuud/Star';
 import { StarPair } from 'src/model/sadalsuud/StarPair';
@@ -69,21 +73,25 @@ export class Validator {
   public async validateAltarfUser(user: AltarfUser): Promise<void> {
     if (user.lineUserId === undefined) throw new Error('lineUserId is missing');
     if (user.name === undefined) throw new Error('name is missing');
+    if (user.role === undefined) throw new Error('role is missing');
+
+    if (!Object.values(AltarfRole).includes(user.role))
+      throw new Error(`unexpected role ${user.role}`);
 
     if (typeof user.lineUserId !== 'string')
       throw new Error('lineUserId should be string');
     if (typeof user.name !== 'string') throw new Error('name should be string');
 
-    const dbUser: DbUser[] = await this.dbService.query<DbUser>(
-      AltarfEntity.user,
-      [
-        {
-          key: 'lineUserId',
-          value: user.lineUserId,
-        },
-      ]
-    );
-    if (dbUser.length !== 0) throw new Error('user already exists');
+    if (user.role === AltarfRole.TEACHER) {
+      if (user.classroom === undefined) throw new Error('classroom is missing');
+      if (user.spreadsheetId === undefined)
+        throw new Error('spreadsheetId is missing');
+
+      if (typeof user.classroom !== 'string')
+        throw new Error('classroom should be string');
+      if (typeof user.spreadsheetId !== 'string')
+        throw new Error('spreadsheetId should be string');
+    }
   }
 
   public validateUpdateUserParams(params: UpdateUserParams): void {

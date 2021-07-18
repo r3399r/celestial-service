@@ -96,6 +96,7 @@ describe('QuizService', () => {
       name: 'tester',
       role: Role.TEACHER,
       spreadsheetId: '12345',
+      classroom: 'cccc',
     };
     dummyDbStudent = {
       projectEntity: AltarfEntity.user,

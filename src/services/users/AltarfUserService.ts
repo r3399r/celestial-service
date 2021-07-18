@@ -1,10 +1,5 @@
 import { inject, injectable } from 'inversify';
-import {
-  DbTeacherStudentPair,
-  Role,
-  UpdateUserParams,
-  User,
-} from 'src/model/altarf/User';
+import { DbTeacherStudentPair, Role, User } from 'src/model/altarf/User';
 import { AltarfEntity } from 'src/model/DbKey';
 import { DbUser } from 'src/model/User';
 import { DbService } from 'src/services/DbService';
@@ -37,51 +32,26 @@ export class AltarfUserService {
   public async addUser(user: User): Promise<DbUser> {
     await this.validator.validateAltarfUser(user);
 
-    return await this.userService.addUser({
-      lineUserId: user.lineUserId,
-      name: user.name,
-      role: Role.STUDENT,
-    });
-  }
+    const dbUser: DbUser[] = await this.dbService.query<DbUser>(
+      AltarfEntity.user,
+      [{ key: 'lineUserId', value: user.lineUserId }]
+    );
+    if (dbUser.length !== 0) throw new Error('user already exists');
 
-  public async switchRole(lineUserId: string): Promise<DbUser> {
-    const user = await this.getUserByLineId(lineUserId);
-
-    return await this.userService.updateUser({
-      ...user,
-      role: user.role === Role.STUDENT ? Role.TEACHER : Role.STUDENT,
-    });
-  }
-
-  public async updateUser(
-    lineUserId: string,
-    params: UpdateUserParams
-  ): Promise<DbUser> {
-    this.validator.validateUpdateUserParams(params);
-
-    const dbUser = await this.getUserByLineId(lineUserId);
-    if (dbUser.role === Role.STUDENT) {
-      if (params.classroom !== undefined)
-        throw new Error('role student should not have classroom attribute');
-      if (params.spreadsheetId !== undefined)
-        throw new Error('role student should not have spreadsheetId attribute');
-
-      return await this.userService.updateUser({
-        ...dbUser,
-        name: params.name !== undefined ? params.name : dbUser.name,
+    if (user.role === Role.STUDENT)
+      return await this.userService.addUser({
+        lineUserId: user.lineUserId,
+        name: user.name,
+        role: Role.STUDENT,
       });
-    } else if (dbUser.role === Role.TEACHER)
-      return await this.userService.updateUser({
-        ...dbUser,
-        name: params.name !== undefined ? params.name : dbUser.name,
-        classroom:
-          params.classroom !== undefined ? params.classroom : dbUser.classroom,
-        spreadsheetId:
-          params.spreadsheetId !== undefined
-            ? params.spreadsheetId
-            : dbUser.spreadsheetId,
+    else
+      return await this.userService.addUser({
+        lineUserId: user.lineUserId,
+        name: user.name,
+        role: Role.TEACHER,
+        classroom: user.classroom,
+        spreadsheetId: user.spreadsheetId,
       });
-    else throw new Error('unexpected role');
   }
 
   public async addStudents(
@@ -98,20 +68,7 @@ export class AltarfUserService {
         if (user.role !== Role.STUDENT)
           throw new Error(`role of ${id} is not student`);
 
-        const dbTeacherStudentPair = await this.dbService.query<DbTeacherStudentPair>(
-          AltarfEntity.teacherStudentPair,
-          [
-            { key: 'teacherId', value: teacher.creationId },
-            {
-              key: 'studentId',
-              value: id,
-            },
-          ]
-        );
-        if (dbTeacherStudentPair.length > 0)
-          throw new Error(
-            `pair of teacher ${teacher.creationId} and student ${id} already exists`
-          );
+        return user;
       })
     );
 

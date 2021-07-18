@@ -1,11 +1,6 @@
 import { inject, injectable } from 'inversify';
 import { Quiz } from 'src/model/altarf/Quiz';
-import {
-  DbTeacherStudentPair,
-  MeStudent,
-  MeTeacher,
-  Role,
-} from 'src/model/altarf/User';
+import { DbTeacherStudentPair, Role } from 'src/model/altarf/User';
 import { QuizService } from './QuizService';
 import { AltarfUserService } from './users/AltarfUserService';
 
@@ -20,7 +15,7 @@ export class MeService {
   @inject(QuizService)
   private readonly quizService!: QuizService;
 
-  public async getMe(lineUserId: string): Promise<MeTeacher | MeStudent> {
+  public async getMe(lineUserId: string): Promise<any> {
     const user = await this.userService.getUserByLineId(lineUserId);
 
     if (user.role === Role.TEACHER) {
@@ -71,10 +66,12 @@ export class MeService {
         name: user.name,
         role: Role.TEACHER,
         students,
+        classroom: user.classroom,
+        spreadsheetId: user.spreadsheetId,
       };
     } else if (user.role === Role.STUDENT) {
       const pair = await this.quizService.getPairByStudentId(user.creationId);
-      const teachers = await Promise.all(
+      await Promise.all(
         pair.map(
           async (
             v: DbTeacherStudentPair
@@ -114,13 +111,13 @@ export class MeService {
         )
       );
 
-      return {
-        id: user.creationId,
-        lineUserId: user.lineUserId,
-        name: user.name,
-        role: Role.STUDENT,
-        teachers,
-      };
+      // return {
+      //   id: user.creationId,
+      //   lineUserId: user.lineUserId,
+      //   name: user.name,
+      //   role: Role.STUDENT,
+      //   teachers,
+      // };
     } else throw new Error('unexpected role');
   }
 }
