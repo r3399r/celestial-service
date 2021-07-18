@@ -1,12 +1,21 @@
 import { inject, injectable } from 'inversify';
-import { DbKey, Entity, SadalsuudEntity } from 'src/model/DbKey';
+import { AssignQuizParams, SaveQuizParams } from 'src/model/altarf/Quiz';
+import {
+  Role as AltarfRole,
+  UpdateUserParams,
+  User as AltarfUser,
+} from 'src/model/altarf/User';
+import { DbKey, SadalsuudEntity } from 'src/model/DbKey';
+import { DbSign, Sign } from 'src/model/sadalsuud/Sign';
 import { DbStar, Star } from 'src/model/sadalsuud/Star';
 import { StarPair } from 'src/model/sadalsuud/StarPair';
 import { DbTrip, Trip } from 'src/model/sadalsuud/Trip';
-import { DbUser, Role, User as SadalsuudUser } from 'src/model/sadalsuud/User';
-import { User } from 'src/model/User';
-import { DbSign, Sign } from './model/sadalsuud/Sign';
-import { DbService } from './services/DbService';
+import {
+  Role as SadalsuudRole,
+  User as SadalsuudUser,
+} from 'src/model/sadalsuud/User';
+import { DbUser } from 'src/model/User';
+import { DbService } from 'src/services/DbService';
 
 /**
  * Validator for lambda input
@@ -26,13 +35,13 @@ export class Validator {
     return res;
   }
 
-  private async validateSadalsuudUser(user: SadalsuudUser): Promise<void> {
+  public async validateSadalsuudUser(user: SadalsuudUser): Promise<void> {
     if (user.lineUserId === undefined) throw new Error('lineUserId is missing');
     if (user.name === undefined) throw new Error('name is missing');
     if (user.phone === undefined) throw new Error('phone is missing');
     if (user.role === undefined) throw new Error('role is missing');
     if (user.status === undefined) throw new Error('status is missing');
-    if (user.role === Role.STAR_RAIN && user.joinSession === undefined)
+    if (user.role === SadalsuudRole.STAR_RAIN && user.joinSession === undefined)
       throw new Error('joinSession is missing');
 
     if (typeof user.lineUserId !== 'string')
@@ -43,7 +52,10 @@ export class Validator {
     if (typeof user.role !== 'string') throw new Error('role should be string');
     if (typeof user.status !== 'string')
       throw new Error('status should be string');
-    if (user.role === Role.STAR_RAIN && typeof user.joinSession !== 'string')
+    if (
+      user.role === SadalsuudRole.STAR_RAIN &&
+      typeof user.joinSession !== 'string'
+    )
       throw new Error('joinSession should be string');
 
     const dbUser: DbUser[] = await this.dbService.query<DbUser>(
@@ -58,9 +70,40 @@ export class Validator {
     if (dbUser.length !== 0) throw new Error('user already exists');
   }
 
-  public async validateUser(projectEntity: Entity, user: User): Promise<void> {
-    if (projectEntity === SadalsuudEntity.user)
-      await this.validateSadalsuudUser(user);
+  public async validateAltarfUser(user: AltarfUser): Promise<void> {
+    if (user.lineUserId === undefined) throw new Error('lineUserId is missing');
+    if (user.name === undefined) throw new Error('name is missing');
+    if (user.role === undefined) throw new Error('role is missing');
+
+    if (!Object.values(AltarfRole).includes(user.role))
+      throw new Error(`unexpected role ${user.role}`);
+
+    if (typeof user.lineUserId !== 'string')
+      throw new Error('lineUserId should be string');
+    if (typeof user.name !== 'string') throw new Error('name should be string');
+
+    if (user.role === AltarfRole.TEACHER) {
+      if (user.classroom === undefined) throw new Error('classroom is missing');
+      if (user.spreadsheetId === undefined)
+        throw new Error('spreadsheetId is missing');
+
+      if (typeof user.classroom !== 'string')
+        throw new Error('classroom should be string');
+      if (typeof user.spreadsheetId !== 'string')
+        throw new Error('spreadsheetId should be string');
+    }
+  }
+
+  public validateUpdateUserParams(params: UpdateUserParams): void {
+    if (params.name !== undefined && typeof params.name !== 'string')
+      throw new Error('name should be string');
+    if (
+      params.spreadsheetId !== undefined &&
+      typeof params.spreadsheetId !== 'string'
+    )
+      throw new Error('spreadsheetId should be string');
+    if (params.classroom !== undefined && typeof params.classroom !== 'string')
+      throw new Error('classroom should be string');
   }
 
   public async validateSign(sign: Sign): Promise<void> {
@@ -134,9 +177,9 @@ export class Validator {
       projectEntity: SadalsuudEntity.user,
       creationId: starPair.userId,
     });
-    if (user.role !== Role.FAMILY && user.role !== Role.STAR)
+    if (user.role !== SadalsuudRole.FAMILY && user.role !== SadalsuudRole.STAR)
       throw new Error(
-        `role of user ${starPair.userId} is not ${Role.FAMILY} or ${Role.STAR}`
+        `role of user ${starPair.userId} is not ${SadalsuudRole.FAMILY} or ${SadalsuudRole.STAR}`
       );
   }
 
@@ -204,8 +247,33 @@ export class Validator {
         projectEntity: SadalsuudEntity.user,
         creationId: participant,
       });
-      if (user.role !== Role.STAR_RAIN)
-        throw new Error(`role of user ${participant} is not ${Role.STAR_RAIN}`);
+      if (user.role !== SadalsuudRole.STAR_RAIN)
+        throw new Error(
+          `role of user ${participant} is not ${SadalsuudRole.STAR_RAIN}`
+        );
     }
+  }
+
+  public validateSaveQuizParams(params: SaveQuizParams): void {
+    if (params.label === undefined) throw new Error('label is missing');
+    if (typeof params.label !== 'string')
+      throw new Error('label should be string');
+  }
+
+  public validateAssignQuizParams(params: AssignQuizParams): void {
+    if (params.quizId === undefined) throw new Error('quizId is missing');
+    if (params.studentId === undefined)
+      throw new Error('shtudentId is missing');
+    if (params.time === undefined) throw new Error('time is missing');
+
+    if (Array.isArray(params.quizId) === false)
+      throw new Error('quizId should be an array');
+    if (Array.isArray(params.studentId) === false)
+      throw new Error('sutdentId should be an array');
+    if (typeof params.time !== 'number')
+      throw new Error('time should be number');
+
+    if (params.quizId.length < 1) throw new Error('empty quizId');
+    if (params.studentId.length < 1) throw new Error('empty studentId');
   }
 }

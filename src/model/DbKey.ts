@@ -1,4 +1,4 @@
-export type Entity = SadalsuudEntity;
+export type Entity = SadalsuudEntity | AltarfEntity;
 
 export enum SadalsuudEntity {
   trip = 'sadalsuud-trip',
@@ -7,6 +7,11 @@ export enum SadalsuudEntity {
   user = 'sadalsuud-user',
   star = 'sadalsuud-star',
   starPair = 'sadalsuud-starPair',
+}
+
+export enum AltarfEntity {
+  user = 'altarf-user',
+  quiz = 'altarf-quiz',
 }
 
 export interface DbKey {

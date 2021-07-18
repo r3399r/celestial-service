@@ -1,4 +1,3 @@
-import { DbKey } from 'src/model/DbKey';
 import { DbStar } from './Star';
 
 export enum Role {
@@ -35,6 +34,3 @@ type StarUser = UserCommon & {
 type VolunteerUser = UserCommon & {
   role: Role.VOLUNTEER;
 };
-
-export type DbUserCommon = UserCommon & DbKey;
-export type DbUser = User & DbKey;

@@ -5,7 +5,7 @@ import { Validator } from 'src/Validator';
 import { DbService } from './DbService';
 import { LineBotService } from './LineBotService';
 import { SignService } from './SignService';
-import { UserService } from './UserService';
+import { UserService } from './users/UserService';
 
 /**
  * Tests of the SignService class.

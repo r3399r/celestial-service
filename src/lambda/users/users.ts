@@ -1,7 +1,8 @@
 import { bindings } from 'src/bindings';
 import { LambdaContext } from 'src/lambda/LambdaContext';
-import { DbUser, User } from 'src/model/User';
-import { UserService } from 'src/services/UserService';
+import { User } from 'src/model/sadalsuud/User';
+import { DbUser } from 'src/model/User';
+import { SadalsuudUserService } from 'src/services/users/SadalsuudUserService';
 import {
   errorOutput,
   LambdaOutput,
@@ -14,7 +15,9 @@ export async function users(
   _context?: LambdaContext
 ): Promise<LambdaOutput> {
   try {
-    const userService: UserService = bindings.get<UserService>(UserService);
+    const userService: SadalsuudUserService = bindings.get<SadalsuudUserService>(
+      SadalsuudUserService
+    );
 
     let res: DbUser | null;
 

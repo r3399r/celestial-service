@@ -1,11 +1,12 @@
 import { bindings } from 'src/bindings';
 import { SadalsuudEntity } from 'src/model/DbKey';
 import { DbTrip, NeedFamilyAccompany, Trip } from 'src/model/sadalsuud/Trip';
-import { DbUser, Role } from 'src/model/sadalsuud/User';
+import { Role } from 'src/model/sadalsuud/User';
+import { DbUser } from 'src/model/User';
 import { Validator } from 'src/Validator';
 import { DbService } from './DbService';
 import { TripService } from './TripService';
-import { UserService } from './UserService';
+import { UserService } from './users/UserService';
 
 /**
  * Tests of the TripService class.
@@ -95,15 +96,6 @@ describe('TripService', () => {
 
     const res: DbTrip | null = await tripService.getTrip('abc');
     expect(res).toBeNull();
-  });
-
-  it('getTrip should fail if participant does not exists', async () => {
-    mockDbService.getItem = jest.fn(() => dummyDbTrip);
-    mockUserService.getUserById = jest.fn(() => null);
-
-    await expect(tripService.getTrip('abc')).rejects.toThrow(
-      new Error('user abcd is not found')
-    );
   });
 
   it('addTrip should work', async () => {

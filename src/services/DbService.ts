@@ -35,6 +35,12 @@ export class DbService {
     return await this.dynamoDb.putItem(params).promise();
   }
 
+  public async putItems<T>(items: T[]): Promise<PutItemOutput[]> {
+    return await Promise.all(
+      items.map(async (item: T) => await this.putItem(item))
+    );
+  }
+
   public async getItem<T>(
     key: DbKey,
     projectionExpression?: string

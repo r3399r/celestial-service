@@ -1,13 +1,8 @@
 import { inject, injectable } from 'inversify';
 import { Entity } from 'src/model/DbKey';
-import { DbStar } from 'src/model/sadalsuud/Star';
-import { DbStarPair } from 'src/model/sadalsuud/StarPair';
-import { Role } from 'src/model/sadalsuud/User';
 import { DbUser, User } from 'src/model/User';
+import { DbService } from 'src/services/DbService';
 import { generateId } from 'src/util/generateId';
-import { Validator } from 'src/Validator';
-import { DbService } from './DbService';
-import { StarService } from './StarService';
 
 /**
  * Service class for user
@@ -17,19 +12,16 @@ export class UserService {
   @inject(DbService)
   private readonly dbService!: DbService;
 
-  @inject(StarService)
-  private readonly starService!: StarService;
-
-  @inject(Validator)
-  private readonly validator!: Validator;
-
-  public async getUserById(creationId: string): Promise<DbUser | null> {
+  public async getUserById(creationId: string): Promise<DbUser> {
     const projectEntity: Entity = process.env.ENTITY as Entity;
 
-    return await this.dbService.getItem<DbUser>({
+    const dbUser = await this.dbService.getItem<DbUser>({
       projectEntity,
       creationId,
     });
+    if (dbUser === null) throw new Error(`user ${creationId} is not found`);
+
+    return dbUser;
   }
 
   public async getAllUsers(): Promise<DbUser[]> {
@@ -55,34 +47,14 @@ export class UserService {
     if (userResult.length === 0) {
       console.info('user not found:', lineUserId);
 
-      throw new Error('user does not exist');
+      throw new Error(`user ${lineUserId} does not exist`);
     }
 
     return userResult[0];
   }
 
-  public async getWholeUserInfo(lineUserId: string): Promise<DbUser> {
-    const dbUser: DbUser = await this.getUserByLineId(lineUserId);
-
-    if (dbUser.role === Role.FAMILY || dbUser.role === Role.STAR) {
-      const dbStarParis: DbStarPair[] = await this.starService.getStarPairByUser(
-        dbUser.creationId
-      );
-      const dbStars: DbStar[] = await Promise.all(
-        dbStarParis.map(async (dbStarPair: DbStarPair) => {
-          return this.starService.getStar(dbStarPair.starId);
-        })
-      );
-
-      return { ...dbUser, starInfo: dbStars };
-    }
-
-    return dbUser;
-  }
-
   public async addUser(user: User): Promise<DbUser> {
     const projectEntity: Entity = process.env.ENTITY as Entity;
-    await this.validator.validateUser(projectEntity, user);
 
     const creationId: string = generateId();
     const dbUser: DbUser = {
@@ -93,5 +65,17 @@ export class UserService {
     await this.dbService.putItem<DbUser>(dbUser);
 
     return dbUser;
+  }
+
+  public async updateUser(dbUser: DbUser): Promise<DbUser> {
+    await this.dbService.putItem<DbUser>(dbUser);
+
+    return dbUser;
+  }
+
+  public async updateUsers(dbUsers: DbUser[]): Promise<DbUser[]> {
+    await this.dbService.putItems<DbUser>(dbUsers);
+
+    return dbUsers;
   }
 }

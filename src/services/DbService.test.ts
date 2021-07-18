@@ -39,6 +39,13 @@ describe('DbService', () => {
     expect(mockDynamoDb.putItem).toBeCalledTimes(1);
   });
 
+  it('putItems should work', async () => {
+    mockDynamoDb.putItem = AWSMockUtil.mockRequest(undefined);
+
+    await dbService.putItems<DummyType>([dummyItem, dummyItem]);
+    expect(mockDynamoDb.putItem).toBeCalledTimes(2);
+  });
+
   it('getItem should work', async () => {
     mockDynamoDb.getItem = AWSMockUtil.mockRequest<GetItemOutput>({
       Item: Converter.marshall(dummyItem),
