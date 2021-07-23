@@ -43,7 +43,7 @@ export class QuizService {
   @inject(Validator)
   private readonly validator!: Validator;
 
-  private async getQuiz(quizId: string): Promise<DbQuiz> {
+  public async getQuiz(quizId: string): Promise<DbQuiz> {
     const dbQuiz = await this.dbService.getItem<DbQuiz>({
       projectEntity: AltarfEntity.quiz,
       creationId: quizId,

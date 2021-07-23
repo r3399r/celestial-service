@@ -1,7 +1,11 @@
 import { bindings } from 'src/bindings';
 import { QuizEvent } from 'src/lambda/altarf/quiz/QuizEvent';
 import { LambdaContext } from 'src/lambda/LambdaContext';
-import { QuizValidateResponse, SaveQuizParams } from 'src/model/altarf/Quiz';
+import {
+  DbQuiz,
+  QuizValidateResponse,
+  SaveQuizParams,
+} from 'src/model/altarf/Quiz';
 import { LineLoginService } from 'src/services/LineLoginService';
 import { QuizService } from 'src/services/QuizService';
 import {
@@ -20,9 +24,17 @@ export async function quiz(
       LineLoginService
     );
 
-    let res: QuizValidateResponse;
+    let res: QuizValidateResponse | DbQuiz;
 
     switch (event.httpMethod) {
+      case 'GET':
+        if (event.pathParameters === null)
+          throw new Error('null path parameter');
+        if (event.pathParameters.id === undefined)
+          throw new Error('missing user id');
+
+        res = await quizService.getQuiz(event.pathParameters.id);
+        break;
       case 'POST':
         if (event.headers['x-api-line'] === undefined)
           throw new Error('missing line authentication token');
