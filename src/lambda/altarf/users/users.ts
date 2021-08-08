@@ -15,9 +15,8 @@ export async function users(
   _context?: LambdaContext
 ): Promise<LambdaOutput> {
   try {
-    const altarfUserService: AltarfUserService = bindings.get<AltarfUserService>(
-      AltarfUserService
-    );
+    const altarfUserService: AltarfUserService =
+      bindings.get<AltarfUserService>(AltarfUserService);
 
     let res: DbUser;
 

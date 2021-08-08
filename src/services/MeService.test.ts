@@ -21,11 +21,13 @@ describe('MeService', () => {
       name: 'tester',
       role: Role.TEACHER,
       spreadsheetId: '12345',
-      classroom: 'cccc',
-      students: [
+      myStudents: [
         {
-          studentId: 'studentId',
-          name: 'aaa',
+          creationId: 'studentId',
+          projectEntity: AltarfEntity.user,
+          lineUserId: 'studentLine',
+          name: 'student',
+          role: Role.STUDENT,
           quizes: [],
           score: [],
         },

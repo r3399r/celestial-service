@@ -29,9 +29,8 @@ export class SadalsuudUserService {
     const dbUser: DbUser = await this.userService.getUserByLineId(lineUserId);
 
     if (dbUser.role === Role.FAMILY || dbUser.role === Role.STAR) {
-      const dbStarParis: DbStarPair[] = await this.starService.getStarPairByUser(
-        dbUser.creationId
-      );
+      const dbStarParis: DbStarPair[] =
+        await this.starService.getStarPairByUser(dbUser.creationId);
       const dbStars: DbStar[] = await Promise.all(
         dbStarParis.map(async (dbStarPair: DbStarPair) => {
           return this.starService.getStar(dbStarPair.starId);

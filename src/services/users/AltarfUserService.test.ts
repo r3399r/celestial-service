@@ -25,6 +25,8 @@ describe('AltarfUserService', () => {
       lineUserId: 'test',
       role: Role.STUDENT,
       name: 'testName',
+      quizes: [],
+      score: [],
     };
     dummyDbStudent = {
       projectEntity: AltarfEntity.user,
@@ -35,8 +37,8 @@ describe('AltarfUserService', () => {
       lineUserId: 'test',
       role: Role.TEACHER,
       name: 'testName',
-      classroom: 'test',
       spreadsheetId: '2134',
+      myStudents: [dummyDbStudent],
     };
     dummyDbTeacher = {
       projectEntity: AltarfEntity.user,
@@ -50,7 +52,7 @@ describe('AltarfUserService', () => {
       addUser: jest.fn(() => dummyDbStudent),
       getUserByLineId: jest.fn(() => dummyDbStudent),
       getUserById: jest.fn(() => dummyDbStudent),
-      updateUsers: jest.fn(),
+      updateUser: jest.fn(),
     };
     mockDbService = {
       query: jest.fn(() => []),
@@ -91,7 +93,7 @@ describe('AltarfUserService', () => {
     await altarfUserService.addStudents('a', ['b', 'c']);
     expect(mockUserService.getUserByLineId).toBeCalledTimes(1);
     expect(mockUserService.getUserById).toBeCalledTimes(2);
-    expect(mockUserService.updateUsers).toBeCalledTimes(1);
+    expect(mockUserService.updateUser).toBeCalledTimes(1);
   });
 
   it('addStudents should fail when wrong role', async () => {
@@ -104,17 +106,5 @@ describe('AltarfUserService', () => {
     await expect(
       altarfUserService.addStudents('a', ['b', 'c'])
     ).rejects.toThrow('role of b is not student');
-  });
-
-  it('addStudents should fail when pair exists', async () => {
-    mockUserService.getUserByLineId = jest.fn(() => dummyDbTeacher);
-    mockUserService.getUserById = jest.fn(() => ({
-      ...dummyDbStudent,
-      teachers: [{ teacherId: 'testTeacherId' }],
-    }));
-
-    await expect(
-      altarfUserService.addStudents('a', ['b', 'c'])
-    ).rejects.toThrow('teacher testTeacherId already exists in student b');
   });
 });

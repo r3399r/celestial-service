@@ -83,12 +83,8 @@ export class Validator {
     if (typeof user.name !== 'string') throw new Error('name should be string');
 
     if (user.role === AltarfRole.TEACHER) {
-      if (user.classroom === undefined) throw new Error('classroom is missing');
       if (user.spreadsheetId === undefined)
         throw new Error('spreadsheetId is missing');
-
-      if (typeof user.classroom !== 'string')
-        throw new Error('classroom should be string');
       if (typeof user.spreadsheetId !== 'string')
         throw new Error('spreadsheetId should be string');
     }
@@ -102,8 +98,6 @@ export class Validator {
       typeof params.spreadsheetId !== 'string'
     )
       throw new Error('spreadsheetId should be string');
-    if (params.classroom !== undefined && typeof params.classroom !== 'string')
-      throw new Error('classroom should be string');
   }
 
   public async validateSign(sign: Sign): Promise<void> {
@@ -256,22 +250,22 @@ export class Validator {
 
   public validateSaveQuizParams(params: SaveQuizParams): void {
     if (params.label === undefined) throw new Error('label is missing');
+    if (params.time === undefined) throw new Error('time is missing');
     if (typeof params.label !== 'string')
       throw new Error('label should be string');
+    if (typeof params.label !== 'number')
+      throw new Error('time should be number');
   }
 
   public validateAssignQuizParams(params: AssignQuizParams): void {
     if (params.quizId === undefined) throw new Error('quizId is missing');
     if (params.studentId === undefined)
       throw new Error('shtudentId is missing');
-    if (params.time === undefined) throw new Error('time is missing');
 
     if (Array.isArray(params.quizId) === false)
       throw new Error('quizId should be an array');
     if (Array.isArray(params.studentId) === false)
       throw new Error('sutdentId should be an array');
-    if (typeof params.time !== 'number')
-      throw new Error('time should be number');
 
     if (params.quizId.length < 1) throw new Error('empty quizId');
     if (params.studentId.length < 1) throw new Error('empty studentId');

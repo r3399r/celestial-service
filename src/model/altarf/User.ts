@@ -1,4 +1,5 @@
-import { QuizStatus } from './Quiz';
+import { DbKey } from 'src/model/DbKey';
+import { QuizInfo } from './Quiz';
 
 export enum Role {
   STUDENT = 'student',
@@ -12,51 +13,30 @@ type UserCommon = {
   name: string;
 };
 
-export type QuizInfoInUser = {
-  quizId: string;
-  label: string;
-  time: number;
-  status: QuizStatus;
-  startTime: number | null;
-};
-
-export type TeacherInfoInStudent = {
-  teacherId: string;
-  name: string;
-  classroom: string;
-  quizes: QuizInfoInUser[];
-  score: {
-    field: string;
-    total: number;
-    count: number;
-  }[];
-};
-
-type Student = UserCommon & {
+export type Student = UserCommon & {
   role: Role.STUDENT;
-  teachers?: TeacherInfoInStudent[];
+  quizes: QuizInfo[];
+  score: Score[];
 };
 
-export type StudentInfoInTeacher = {
-  studentId: string;
-  name: string;
-  quizes: QuizInfoInUser[];
-  score: {
-    field: string;
-    total: number;
-    count: number;
-  }[];
-};
-
-type Teacher = UserCommon & {
+export type Teacher = UserCommon & {
   role: Role.TEACHER;
   spreadsheetId: string;
-  classroom: string;
-  students?: StudentInfoInTeacher[];
+  myStudents: (DbKey & Student)[];
 };
 
 export type UpdateUserParams = {
   name?: string;
   spreadsheetId?: string;
-  classroom?: string;
+};
+
+type Score = {
+  subject: 'math';
+  field: Field[];
+};
+
+type Field = {
+  name: string;
+  count: number;
+  total: number;
 };

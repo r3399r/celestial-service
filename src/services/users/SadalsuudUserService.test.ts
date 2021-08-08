@@ -82,9 +82,8 @@ describe('SadalsuudUserService', () => {
     bindings.rebind<StarService>(StarService).toConstantValue(mockStarService);
     bindings.rebind<Validator>(Validator).toConstantValue(mockValidator);
 
-    sadalsuudUserService = bindings.get<SadalsuudUserService>(
-      SadalsuudUserService
-    );
+    sadalsuudUserService =
+      bindings.get<SadalsuudUserService>(SadalsuudUserService);
   });
 
   it('getAllUsers should work', async () => {

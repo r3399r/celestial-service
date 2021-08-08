@@ -15,9 +15,8 @@ export async function me(
   _context?: LambdaContext
 ): Promise<LambdaOutput> {
   try {
-    const lineLoginService: LineLoginService = bindings.get<LineLoginService>(
-      LineLoginService
-    );
+    const lineLoginService: LineLoginService =
+      bindings.get<LineLoginService>(LineLoginService);
     const meService: MeService = bindings.get<MeService>(MeService);
 
     let res: DbUser;

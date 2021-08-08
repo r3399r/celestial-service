@@ -38,6 +38,7 @@ describe('QuizService', () => {
       owner: 'me',
       label: 'aaa',
       questions: [],
+      time: 30,
     };
     dummyGoodQuestionRow = [
       {
@@ -80,6 +81,15 @@ describe('QuizService', () => {
       status: QuizValidateResponseStatus.NEED_MORE_WORK,
       content: [],
     };
+    dummyDbStudent = {
+      projectEntity: AltarfEntity.user,
+      creationId: 'studentId',
+      lineUserId: 'lineId',
+      name: 'student',
+      role: Role.STUDENT,
+      quizes: [],
+      score: [],
+    };
     dummyDbTeacher = {
       projectEntity: AltarfEntity.user,
       creationId: 'teacherId',
@@ -87,31 +97,7 @@ describe('QuizService', () => {
       name: 'tester',
       role: Role.TEACHER,
       spreadsheetId: '12345',
-      classroom: 'cccc',
-      students: [
-        {
-          studentId: 'studentId',
-          name: 'aaa',
-          quizes: [],
-          score: [],
-        },
-      ],
-    };
-    dummyDbStudent = {
-      projectEntity: AltarfEntity.user,
-      creationId: 'studentId',
-      lineUserId: 'lineId',
-      name: 'student',
-      role: Role.STUDENT,
-      teachers: [
-        {
-          teacherId: 'teacherId',
-          classroom: 'ccc',
-          name: 'aaa',
-          quizes: [],
-          score: [],
-        },
-      ],
+      myStudents: [dummyDbStudent],
     };
   });
 
@@ -144,13 +130,19 @@ describe('QuizService', () => {
   });
 
   it('save should return OK', async () => {
-    const res = await quizService.save('lineId', 'sheetId', { label: 'b' });
+    const res = await quizService.save('lineId', 'sheetId', {
+      label: 'b',
+      time: 30,
+    });
     expect(res.status).toBe(dummyGoodResult.status);
   });
 
   it('save should return NEED_MORE_WORK', async () => {
     mockGooglesheetService.getRows = jest.fn(() => dummyBadQuestionRow);
-    const res = await quizService.save('lineId', 'sheetId', { label: 'a' });
+    const res = await quizService.save('lineId', 'sheetId', {
+      label: 'a',
+      time: 30,
+    });
     expect(res.status).toBe(dummyBadResult.status);
   });
 
@@ -158,7 +150,6 @@ describe('QuizService', () => {
     await quizService.assign('lineId', {
       studentId: ['studentId'],
       quizId: [dummyDbQuiz.creationId],
-      time: 12,
     });
     expect(mockDbService.putItems).toHaveBeenCalledTimes(1);
   });
@@ -170,7 +161,6 @@ describe('QuizService', () => {
       quizService.assign('lineId', {
         studentId: ['studentId'],
         quizId: [dummyDbQuiz.creationId],
-        time: 12,
       })
     ).rejects.toThrow('role of studentId is not student');
 
@@ -181,7 +171,6 @@ describe('QuizService', () => {
       quizService.assign('lineId', {
         studentId: ['studentId'],
         quizId: [dummyDbQuiz.creationId],
-        time: 12,
       })
     ).rejects.toThrow('role of lineId is not teacher');
   });
@@ -203,7 +192,6 @@ describe('QuizService', () => {
       quizService.assign('lineId', {
         studentId: ['student'],
         quizId: [dummyDbQuiz.creationId],
-        time: 12,
       })
     ).rejects.toThrow(
       `teacher ${dummyDbTeacher.creationId} does not teach student student`
@@ -216,7 +204,6 @@ describe('QuizService', () => {
       teachers: [
         {
           teacherId: 'teacherId',
-          classroom: 'ccc',
           name: 'aaa',
           quizes: [{ quizId: 'quiz' }],
           score: [],
@@ -228,7 +215,6 @@ describe('QuizService', () => {
       quizService.assign('lineId', {
         studentId: ['studentId'],
         quizId: [dummyDbQuiz.creationId],
-        time: 12,
       })
     ).rejects.toThrow(
       `student studentId has already assigned quiz ${dummyDbQuiz.creationId}`

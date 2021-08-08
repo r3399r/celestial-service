@@ -43,14 +43,52 @@ export class AltarfUserService {
         lineUserId: user.lineUserId,
         name: user.name,
         role: Role.STUDENT,
+        quizes: [],
+        score: [
+          {
+            subject: 'math',
+            field: [
+              {
+                name: '空間與形狀',
+                total: 0,
+                count: 0,
+              },
+              {
+                name: '數與量',
+                total: 0,
+                count: 0,
+              },
+              {
+                name: '資料與不確定性',
+                total: 0,
+                count: 0,
+              },
+              {
+                name: '代數',
+                total: 0,
+                count: 0,
+              },
+              {
+                name: '函數',
+                total: 0,
+                count: 0,
+              },
+              {
+                name: '坐標幾何',
+                total: 0,
+                count: 0,
+              },
+            ],
+          },
+        ],
       });
     else
       return await this.userService.addUser({
         lineUserId: user.lineUserId,
         name: user.name,
         role: Role.TEACHER,
-        classroom: user.classroom,
         spreadsheetId: user.spreadsheetId,
+        myStudents: [],
       });
   }
 
@@ -62,77 +100,22 @@ export class AltarfUserService {
     if (teacher.role !== Role.TEACHER)
       throw new Error(`role of ${lineUserId} is not teacher`);
 
-    const students = await Promise.all(
+    teacher.myStudents = await Promise.all(
       studentId.map(async (id: string) => {
         const user = await this.getUserById(id);
         if (user.role !== Role.STUDENT)
           throw new Error(`role of ${id} is not student`);
 
-        if (_(user.teachers).some(['teacherId', teacher.creationId]))
-          throw new Error(
-            `teacher ${teacher.creationId} already exists in student ${id}`
-          );
-
         return user;
       })
     );
 
-    const initScore = [
-      {
-        field: '空間與形狀',
-        total: 0,
-        count: 0,
-      },
-      {
-        field: '數與量',
-        total: 0,
-        count: 0,
-      },
-      {
-        field: '資料與不確定性',
-        total: 0,
-        count: 0,
-      },
-      {
-        field: '代數',
-        total: 0,
-        count: 0,
-      },
-      {
-        field: '函數',
-        total: 0,
-        count: 0,
-      },
-      {
-        field: '坐標幾何',
-        total: 0,
-        count: 0,
-      },
-    ];
+    await this.userService.updateUser(teacher);
+  }
 
-    teacher.students = students.map((user: DbUser) => {
-      if (user.role !== Role.STUDENT) throw new Error('internal error');
+  public async updateUsers(dbUsers: DbUser[]): Promise<DbUser[]> {
+    await this.userService.updateUsers(dbUsers);
 
-      const newTeacher = {
-        teacherId: teacher.creationId,
-        name: teacher.name,
-        classroom: teacher.classroom,
-        quizes: [],
-        score: initScore,
-      };
-      user.teachers =
-        user.teachers === undefined
-          ? [newTeacher]
-          : [...user.teachers, newTeacher];
-
-      return {
-        studentId: user.creationId,
-        name: user.name,
-        quizes: [],
-        score: initScore,
-      };
-    });
-
-    await this.userService.updateUsers([teacher, ...students]);
+    return dbUsers;
   }
 }

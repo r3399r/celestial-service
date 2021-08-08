@@ -15,9 +15,8 @@ export async function line(
   _context?: LambdaContext
 ): Promise<LambdaOutput> {
   try {
-    const lineBotService: LineBotService = bindings.get<LineBotService>(
-      LineBotService
-    );
+    const lineBotService: LineBotService =
+      bindings.get<LineBotService>(LineBotService);
 
     let res: MessageAPIResponseBase;
 

@@ -16,9 +16,8 @@ export async function quizAssign(
 ): Promise<LambdaOutput> {
   try {
     const quizService: QuizService = bindings.get<QuizService>(QuizService);
-    const lineLoginService: LineLoginService = bindings.get<LineLoginService>(
-      LineLoginService
-    );
+    const lineLoginService: LineLoginService =
+      bindings.get<LineLoginService>(LineLoginService);
 
     const res: string = '';
 

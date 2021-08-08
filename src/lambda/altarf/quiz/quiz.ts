@@ -3,6 +3,7 @@ import { QuizEvent } from 'src/lambda/altarf/quiz/QuizEvent';
 import { LambdaContext } from 'src/lambda/LambdaContext';
 import {
   DbQuiz,
+  DbQuizResult,
   QuizValidateResponse,
   SaveQuizParams,
 } from 'src/model/altarf/Quiz';
@@ -20,11 +21,10 @@ export async function quiz(
 ): Promise<LambdaOutput> {
   try {
     const quizService: QuizService = bindings.get<QuizService>(QuizService);
-    const lineLoginService: LineLoginService = bindings.get<LineLoginService>(
-      LineLoginService
-    );
+    const lineLoginService: LineLoginService =
+      bindings.get<LineLoginService>(LineLoginService);
 
-    let res: QuizValidateResponse | DbQuiz;
+    let res: QuizValidateResponse | DbQuiz | DbQuizResult;
 
     switch (event.httpMethod) {
       case 'GET':
@@ -35,13 +35,13 @@ export async function quiz(
 
         res = await quizService.getQuiz(event.pathParameters.id);
         break;
-      case 'POST':
+      case 'POST': {
         if (event.headers['x-api-line'] === undefined)
           throw new Error('missing line authentication token');
         if (event.pathParameters === null)
           throw new Error('null path parameter');
         if (event.pathParameters.id === undefined)
-          throw new Error('missing user id');
+          throw new Error('missing sheet id');
         if (event.body === null) throw new Error('null body');
 
         const lineUser = await lineLoginService.verifyAndGetUser(
@@ -55,6 +55,25 @@ export async function quiz(
           params
         );
         break;
+      }
+      case 'PUT': {
+        if (event.headers['x-api-line'] === undefined)
+          throw new Error('missing line authentication token');
+        if (event.pathParameters === null)
+          throw new Error('null path parameter');
+        if (event.pathParameters.id === undefined)
+          throw new Error('missing quiz id');
+        if (event.body === null) throw new Error('null body');
+
+        const lineUser = await lineLoginService.verifyAndGetUser(
+          event.headers['x-api-line']
+        );
+        res = await quizService.update(
+          lineUser.userId,
+          event.pathParameters.id
+        );
+        break;
+      }
       default:
         throw new Error('unknown http method');
     }

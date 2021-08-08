@@ -29,6 +29,7 @@ export type QuizValidateResponse = {
 };
 
 export type QuizRow = {
+  id: string;
   question?: string;
   type?: QuestionType;
   options?: string;
@@ -42,16 +43,36 @@ export type SpreadsheetQuizRow = GoogleSpreadsheetRow & QuizRow;
 export type Quiz = {
   owner: string;
   label: string;
+  time: number;
   questions: QuizRow[];
 };
 export type DbQuiz = DbKey & Quiz;
 
 export type SaveQuizParams = {
   label: string;
+  time: number;
 };
 
 export type AssignQuizParams = {
   studentId: string[];
   quizId: string[];
-  time: number;
 };
+
+export type QuizInfo = {
+  quizId: string;
+  label: string;
+  status: QuizStatus;
+};
+
+export type QuizResult = {
+  quizId: string;
+  testerId: string;
+  startTime: number;
+  status: QuizStatus;
+  results: {
+    id: string;
+    answerOfTester: string;
+  }[];
+};
+
+export type DbQuizResult = DbKey & QuizResult;

@@ -14,12 +14,10 @@ export async function myStudents(
   _context?: LambdaContext
 ): Promise<LambdaOutput> {
   try {
-    const altarfUserService: AltarfUserService = bindings.get<AltarfUserService>(
-      AltarfUserService
-    );
-    const lineLoginService: LineLoginService = bindings.get<LineLoginService>(
-      LineLoginService
-    );
+    const altarfUserService: AltarfUserService =
+      bindings.get<AltarfUserService>(AltarfUserService);
+    const lineLoginService: LineLoginService =
+      bindings.get<LineLoginService>(LineLoginService);
 
     const res: string = '';
 

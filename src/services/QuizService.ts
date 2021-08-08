@@ -4,7 +4,9 @@ import { bindings } from 'src/bindings';
 import {
   AssignQuizParams,
   DbQuiz,
+  DbQuizResult,
   QuestionType,
+  QuizInfo,
   QuizRow,
   QuizStatus,
   QuizValidate,
@@ -13,13 +15,8 @@ import {
   SaveQuizParams,
   SpreadsheetQuizRow,
 } from 'src/model/altarf/Quiz';
-import {
-  QuizInfoInUser,
-  Role,
-  StudentInfoInTeacher,
-  TeacherInfoInStudent,
-} from 'src/model/altarf/User';
-import { AltarfEntity } from 'src/model/DbKey';
+import { Role, Student, Teacher } from 'src/model/altarf/User';
+import { AltarfEntity, DbKey } from 'src/model/DbKey';
 import { DbUser } from 'src/model/User';
 import { GoogleSheetService } from 'src/services/GoogleSheetService';
 import { AltarfUserService } from 'src/services/users/AltarfUserService';
@@ -53,6 +50,16 @@ export class QuizService {
     return dbQuiz;
   }
 
+  private async getQuizResult(
+    quizId: string,
+    testerId: string
+  ): Promise<DbQuizResult[]> {
+    return await this.dbService.query<DbQuizResult>(AltarfEntity.quizResult, [
+      { key: 'quizId', value: quizId },
+      { key: 'testerId', value: testerId },
+    ]);
+  }
+
   public async assign(
     lineUserId: string,
     params: AssignQuizParams
@@ -69,20 +76,13 @@ export class QuizService {
         if (user.role !== Role.STUDENT)
           throw new Error(`role of ${id} is not student`);
 
-        if (!_(teacher.students).some(['studentId', id]))
+        if (!_(teacher.myStudents).some(['creationId', id]))
           throw new Error(
             `teacher ${teacher.creationId} does not teach student ${id}`
           );
 
-        const teacherId = _(user.teachers).findIndex(
-          (o: TeacherInfoInStudent) => o.teacherId === teacher.creationId
-        );
-
-        if (user.teachers === undefined) throw new Error('internal error');
         for (const quizId of params.quizId) {
-          const myQuiz = user.teachers[teacherId].quizes.map(
-            (quiz: QuizInfoInUser) => quiz.quizId
-          );
+          const myQuiz = user.quizes.map((quiz: QuizInfo) => quiz.quizId);
           if (myQuiz.includes(quizId))
             throw new Error(
               `student ${user.creationId} has already assigned quiz ${quizId}`
@@ -99,29 +99,76 @@ export class QuizService {
 
     students.map((student: DbUser) => {
       if (student.role !== Role.STUDENT) throw new Error('internal error');
-      if (student.teachers === undefined) throw new Error('internal error');
-      if (teacher.students === undefined) throw new Error('internal error');
 
-      const studentId = _(teacher.students).findIndex(
-        (o: StudentInfoInTeacher) => o.studentId === student.creationId
+      const studentId = _(teacher.myStudents).findIndex(
+        (o: DbUser) => o.creationId === student.creationId
       );
-      const teacherId = _(student.teachers).findIndex(
-        (o: TeacherInfoInStudent) => o.teacherId === teacher.creationId
-      );
+
       for (const quiz of quizes) {
         const quizInfo = {
           quizId: quiz.creationId,
           label: quiz.label,
-          time: params.time,
           status: QuizStatus.TODO,
-          startTime: null,
         };
-        teacher.students[studentId].quizes.push(quizInfo);
-        student.teachers[teacherId].quizes.push(quizInfo);
+        student.quizes.push(quizInfo);
+        teacher.myStudents[studentId].quizes.push(quizInfo);
       }
     });
 
     await this.dbService.putItems<DbUser>([teacher, ...students]);
+  }
+
+  public async update(
+    lineUserId: string,
+    quizId: string
+  ): Promise<DbQuizResult> {
+    const student = await this.userService.getUserByLineId(lineUserId);
+    if (student.role !== Role.STUDENT) throw new Error('something went wrong');
+
+    const quiz = await this.getQuiz(quizId);
+    const teacher = await this.userService.getUserById(quiz.owner);
+    if (teacher.role !== Role.TEACHER) throw new Error('something went wrong');
+
+    const studentIdxInTeacher = teacher.myStudents.findIndex(
+      (o: DbUser) => o.creationId === student.creationId
+    );
+    teacher.myStudents[studentIdxInTeacher] = student;
+
+    const quizResult = await this.getQuizResult(quizId, student.creationId);
+    if (quizResult.length === 0)
+      return await this.start(student, teacher, quiz);
+    throw new Error('unexpected');
+  }
+
+  private async start(
+    student: DbKey & Student,
+    teacher: DbKey & Teacher,
+    quiz: DbQuiz
+  ): Promise<DbQuizResult> {
+    const idx = student.quizes.findIndex(
+      (o: QuizInfo) => o.quizId === quiz.creationId
+    );
+    student.quizes[idx].status = QuizStatus.TESTING;
+    const studentIdxInTeacher = teacher.myStudents.findIndex(
+      (o: DbUser) => o.creationId === student.creationId
+    );
+    teacher.myStudents[studentIdxInTeacher].quizes[idx].status =
+      QuizStatus.TESTING;
+
+    const newQuizResult: DbQuizResult = {
+      projectEntity: AltarfEntity.quizResult,
+      creationId: generateId(),
+      quizId: quiz.creationId,
+      testerId: student.creationId,
+      startTime: Date.now(),
+      status: QuizStatus.TESTING,
+      results: [],
+    };
+
+    await this.dbService.putItem<DbQuizResult>(newQuizResult);
+    await this.userService.updateUsers([student, teacher]);
+
+    return newQuizResult;
   }
 
   public async save(
@@ -134,9 +181,8 @@ export class QuizService {
     const dbUser = await this.userService.getUserByLineId(lineUserId);
     this.bindSpreadsheetId(dbUser);
 
-    const googleSheetService = bindings.get<GoogleSheetService>(
-      GoogleSheetService
-    );
+    const googleSheetService =
+      bindings.get<GoogleSheetService>(GoogleSheetService);
     const rows = (await googleSheetService.getRows(
       sheetId
     )) as SpreadsheetQuizRow[];
@@ -147,6 +193,7 @@ export class QuizService {
 
     const questions = rows.map(
       (v: SpreadsheetQuizRow): QuizRow => ({
+        id: generateId(),
         question: v.question,
         type: v.type,
         options: v.options,
@@ -162,6 +209,7 @@ export class QuizService {
       creationId,
       owner: dbUser.creationId,
       label: params.label,
+      time: params.time,
       questions,
     };
 
