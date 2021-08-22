@@ -14,6 +14,7 @@ import {
   QuizValidateResponseStatus,
   SaveQuizParams,
   SpreadsheetQuizRow,
+  UpdateQuizParams,
 } from 'src/model/altarf/Quiz';
 import { Role, Student, Teacher } from 'src/model/altarf/User';
 import { AltarfEntity, DbKey } from 'src/model/DbKey';
@@ -52,11 +53,13 @@ export class QuizService {
 
   private async getQuizResult(
     quizId: string,
-    testerId: string
+    testerId: string,
+    quizStatus: QuizStatus = QuizStatus.TESTING
   ): Promise<DbQuizResult[]> {
     return await this.dbService.query<DbQuizResult>(AltarfEntity.quizResult, [
       { key: 'quizId', value: quizId },
       { key: 'testerId', value: testerId },
+      { key: 'quizStatus', value: quizStatus },
     ]);
   }
 
@@ -105,10 +108,10 @@ export class QuizService {
       );
 
       for (const quiz of quizes) {
-        const quizInfo = {
+        const quizInfo: QuizInfo = {
           quizId: quiz.creationId,
           label: quiz.label,
-          status: QuizStatus.TODO,
+          quizStatus: QuizStatus.TODO,
         };
         student.quizes.push(quizInfo);
         teacher.myStudents[studentId].quizes.push(quizInfo);
@@ -120,7 +123,8 @@ export class QuizService {
 
   public async update(
     lineUserId: string,
-    quizId: string
+    quizId: string,
+    params: UpdateQuizParams
   ): Promise<DbQuizResult> {
     const student = await this.userService.getUserByLineId(lineUserId);
     if (student.role !== Role.STUDENT) throw new Error('something went wrong');
@@ -135,9 +139,51 @@ export class QuizService {
     teacher.myStudents[studentIdxInTeacher] = student;
 
     const quizResult = await this.getQuizResult(quizId, student.creationId);
+    // 無結果表示資料庫中無考試紀錄
     if (quizResult.length === 0)
       return await this.start(student, teacher, quiz);
+    if (quizResult.length === 1 && params.complete === undefined)
+      return await this.sync(quizResult[0], params);
+    if (quizResult.length === 1 && params.complete === true)
+      return await this.complete(student, teacher, quizResult[0]);
+
     throw new Error('unexpected');
+  }
+
+  private async complete(
+    student: DbKey & Student,
+    teacher: DbKey & Teacher,
+    quizResult: DbQuizResult
+  ): Promise<DbQuizResult> {
+    const idx = student.quizes.findIndex(
+      (o: QuizInfo) => o.quizId === quizResult.quizId
+    );
+    student.quizes[idx].quizStatus = QuizStatus.DONE;
+    const studentIdxInTeacher = teacher.myStudents.findIndex(
+      (o: DbUser) => o.creationId === student.creationId
+    );
+    teacher.myStudents[studentIdxInTeacher] = student;
+
+    quizResult.quizStatus = QuizStatus.DONE;
+    await this.dbService.putItem<DbQuizResult>(quizResult);
+    await this.userService.updateUsers([student, teacher]);
+
+    return quizResult;
+  }
+
+  private async sync(
+    quizResult: DbQuizResult,
+    params: UpdateQuizParams
+  ): Promise<DbQuizResult> {
+    if (params.id === undefined || params.answerOfTester === undefined)
+      throw new Error('bad parameter');
+    quizResult.results.push({
+      id: params.id,
+      answerOfTester: params.answerOfTester,
+    });
+    await this.dbService.putItem<DbQuizResult>(quizResult);
+
+    return quizResult;
   }
 
   private async start(
@@ -148,12 +194,11 @@ export class QuizService {
     const idx = student.quizes.findIndex(
       (o: QuizInfo) => o.quizId === quiz.creationId
     );
-    student.quizes[idx].status = QuizStatus.TESTING;
+    student.quizes[idx].quizStatus = QuizStatus.TESTING;
     const studentIdxInTeacher = teacher.myStudents.findIndex(
       (o: DbUser) => o.creationId === student.creationId
     );
-    teacher.myStudents[studentIdxInTeacher].quizes[idx].status =
-      QuizStatus.TESTING;
+    teacher.myStudents[studentIdxInTeacher] = student;
 
     const newQuizResult: DbQuizResult = {
       projectEntity: AltarfEntity.quizResult,
@@ -161,7 +206,7 @@ export class QuizService {
       quizId: quiz.creationId,
       testerId: student.creationId,
       startTime: Date.now(),
-      status: QuizStatus.TESTING,
+      quizStatus: QuizStatus.TESTING,
       results: [],
     };
 
@@ -192,8 +237,8 @@ export class QuizService {
       return validateResult;
 
     const questions = rows.map(
-      (v: SpreadsheetQuizRow): QuizRow => ({
-        id: generateId(),
+      (v: SpreadsheetQuizRow, i: number): QuizRow => ({
+        id: `${generateId()}${i}`,
         question: v.question,
         type: v.type,
         options: v.options,

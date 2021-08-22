@@ -6,6 +6,7 @@ import {
   DbQuizResult,
   QuizValidateResponse,
   SaveQuizParams,
+  UpdateQuizParams,
 } from 'src/model/altarf/Quiz';
 import { LineLoginService } from 'src/services/LineLoginService';
 import { QuizService } from 'src/services/QuizService';
@@ -68,9 +69,11 @@ export async function quiz(
         const lineUser = await lineLoginService.verifyAndGetUser(
           event.headers['x-api-line']
         );
+        const params: UpdateQuizParams = JSON.parse(event.body);
         res = await quizService.update(
           lineUser.userId,
-          event.pathParameters.id
+          event.pathParameters.id,
+          params
         );
         break;
       }

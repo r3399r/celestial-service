@@ -253,7 +253,7 @@ export class Validator {
     if (params.time === undefined) throw new Error('time is missing');
     if (typeof params.label !== 'string')
       throw new Error('label should be string');
-    if (typeof params.label !== 'number')
+    if (typeof params.time !== 'number')
       throw new Error('time should be number');
   }
 

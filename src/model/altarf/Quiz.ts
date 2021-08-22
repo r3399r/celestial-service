@@ -53,6 +53,12 @@ export type SaveQuizParams = {
   time: number;
 };
 
+export type UpdateQuizParams = {
+  id?: string;
+  answerOfTester?: string;
+  complete?: boolean;
+};
+
 export type AssignQuizParams = {
   studentId: string[];
   quizId: string[];
@@ -61,14 +67,14 @@ export type AssignQuizParams = {
 export type QuizInfo = {
   quizId: string;
   label: string;
-  status: QuizStatus;
+  quizStatus: QuizStatus;
 };
 
 export type QuizResult = {
   quizId: string;
   testerId: string;
   startTime: number;
-  status: QuizStatus;
+  quizStatus: QuizStatus;
   results: {
     id: string;
     answerOfTester: string;
