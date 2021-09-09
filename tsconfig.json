@@ -7,7 +7,12 @@
     "experimentalDecorators": true,
     "forceConsistentCasingInFileNames": true,
     "importHelpers": true,
-    "lib": ["dom", "es7", "dom.iterable", "scripthost"],
+    "lib": [
+      "dom",
+      "es7",
+      "dom.iterable",
+      "scripthost"
+    ],
     "module": "commonjs",
     "moduleResolution": "node",
     "noEmitOnError": true,
@@ -15,10 +20,14 @@
     "noImplicitReturns": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "outDir": "build",
+    "outDir": "lib",
     "paths": {
-      "src/*": ["src/*"],
-      "test/*": ["test/*"]
+      "src/*": [
+        "src/*"
+      ],
+      "test/*": [
+        "test/*"
+      ]
     },
     "plugins": [
       {
@@ -30,5 +39,13 @@
     "strict": true,
     "target": "es6"
   },
-  "include": ["src/**/*.ts", "test/**/*.ts"]
+  "include": [
+    "src/**/*.ts",
+    "test/**/*.ts",
+    "index.ts"
+  ],
+  "exclude": [
+    "src/**/*.test.ts",
+    "test/**/*.test.ts"
+  ]
 }

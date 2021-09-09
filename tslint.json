@@ -15,14 +15,26 @@
     "tslint-config-prettier"
   ],
   "linterOptions": {
-    "exclude": ["dist", "node_modules", "build"]
+    "exclude": [
+      "dist",
+      "node_modules",
+      "lib"
+    ]
   },
   "rules": {
-    "curly": [true, "as-needed"],
+    "curly": [
+      true,
+      "as-needed"
+    ],
     "cyclomatic-complexity": false,
     // It looks like the 'ignore-case' option is broken, and this rule is always
     // case-insensitive at the moment
-    "export-name": [true, { "ignore-case": false }],
+    "export-name": [
+      true,
+      {
+        "ignore-case": false
+      }
+    ],
     // default was forcing caplitalized static methods
     "function-name": [
       true,
@@ -36,13 +48,21 @@
     ],
     "insecure-random": false,
     // antiquated pattern - use google style
-    "interface-name": [true, "never-prefix"],
-    "linebreak-style": [true, "LF"],
+    "interface-name": [
+      true,
+      "never-prefix"
+    ],
+    "linebreak-style": [
+      true,
+      "LF"
+    ],
     // allow 'skipped' tests as well
     "max-func-body-length": [
       true,
       500,
-      { "ignore-parameters-to-function-regex": "^(describe|skip)$" }
+      {
+        "ignore-parameters-to-function-regex": "^(describe|skip)$"
+      }
     ],
     // explicit access
     "member-access": true,
@@ -56,13 +76,28 @@
     // not using backbone
     "no-backbone-get-set-outside-model": false,
     // here to easily disable during development
-    "no-console": [true, "log"],
+    "no-console": [
+      true,
+      "log"
+    ],
     // deprecated
     "no-function-constructor-with-string-args": false,
     // allow packages
-    "no-implicit-dependencies": [true, "dev", ["src", "test"]],
+    "no-implicit-dependencies": [
+      true,
+      "dev",
+      [
+        "src",
+        "test"
+      ]
+    ],
     // exception for 'reflect-metadata'
-    "no-import-side-effect": [true, { "ignore-module": "reflect-metadata" }],
+    "no-import-side-effect": [
+      true,
+      {
+        "ignore-module": "reflect-metadata"
+      }
+    ],
     // deprecated
     "no-increment-decrement": false,
     // explicit types
@@ -70,7 +105,10 @@
     // TypeORM requires 'null' when working with 'null' database values
     "no-null-keyword": false,
     // relax by allowing siblings and nested
-    "no-relative-imports": [true, "allow-siblings"],
+    "no-relative-imports": [
+      true,
+      "allow-siblings"
+    ],
     // deprecated
     "no-reserved-keywords": false,
     // return await
@@ -80,7 +118,10 @@
     // deprecated
     "no-unnecessary-bind": false,
     // allow related collections of static methods as classes
-    "no-unnecessary-class": [true, "allow-static-only"],
+    "no-unnecessary-class": [
+      true,
+      "allow-static-only"
+    ],
     // this is valuable, but really tough to comply with when dealing with untyped third party libraries
     // recommend occassionally setting this to true in any project and attempting to fix most violations
     "no-unsafe-any": false,
