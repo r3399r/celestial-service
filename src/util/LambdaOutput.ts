@@ -14,7 +14,9 @@ export function successOutput<T>(res: T): LambdaOutput {
   };
 }
 
-export function errorOutput(error: Error): LambdaOutput {
+export function errorOutput(e: unknown): LambdaOutput {
+  const error: Error = e as Error;
+
   return {
     statusCode: 400,
     headers: {
