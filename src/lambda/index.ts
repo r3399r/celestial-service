@@ -18,3 +18,4 @@ export { users as altarfUsers } from 'src/lambda/altarf/users/users';
 export { myStudents } from 'src/lambda/altarf/myStudents/myStudents';
 export { quiz } from 'src/lambda/altarf/quiz/quiz';
 export { quizAssign } from 'src/lambda/altarf/quizAssign/quizAssign';
+export { demo } from 'src/lambda/demo';

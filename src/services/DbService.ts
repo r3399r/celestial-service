@@ -86,7 +86,7 @@ export class DbService {
     return res.Items === undefined
       ? []
       : res.Items.map(
-          (item: AttributeMap): T => Converter.unmarshall(item) as T
-        );
+        (item: AttributeMap): T => Converter.unmarshall(item) as T
+      );
   }
 }
