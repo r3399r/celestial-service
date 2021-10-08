@@ -1,6 +1,7 @@
 import { DynamoDB } from "aws-sdk";
 import { Converter, PutItemInput, PutItemOutput } from "aws-sdk/clients/dynamodb";
 import { inject, injectable } from "inversify";
+import { Base } from "src/model/DbBase";
 
 /**
  * Service class for AWS dynamoDB
@@ -9,9 +10,12 @@ import { inject, injectable } from "inversify";
 export class DbService {
   @inject(DynamoDB)
   private readonly dynamoDb!: DynamoDB;
-  private readonly tableName: string = 'testtest';
+  private readonly tableName: string = `celestial-db-${process.env.ENVR}`;
 
-  public async putItem<T>(item: T): Promise<PutItemOutput> {
+  public async createItem<T extends Base>(item: T): Promise<PutItemOutput> {
+    // check pk does not repeat
+
+
     const params: PutItemInput = {
       TableName: this.tableName,
       Item: Converter.marshall(item),
