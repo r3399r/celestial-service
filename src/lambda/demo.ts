@@ -10,9 +10,7 @@ export async function demo(
   _context?: LambdaContext
 ): Promise<LambdaOutput> {
   try {
-
-    let res = '';
-
+    const res = '';
 
     return successOutput(res);
   } catch (e) {

@@ -4,15 +4,15 @@ import { DbStar, Star } from 'src/model/sadalsuud/Star';
 import { DbStarPair, StarPair } from 'src/model/sadalsuud/StarPair';
 import { generateId } from 'src/util/generateId';
 import { Validator } from 'src/Validator';
-import { DbService } from './DbService';
+import { DbServiceBak } from './DbServiceBak';
 
 /**
  * Service class for stars
  */
 @injectable()
 export class StarService {
-  @inject(DbService)
-  private readonly dbService!: DbService;
+  @inject(DbServiceBak)
+  private readonly dbService!: DbServiceBak;
 
   @inject(Validator)
   private readonly validator!: Validator;

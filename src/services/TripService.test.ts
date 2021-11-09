@@ -4,7 +4,7 @@ import { DbTrip, NeedFamilyAccompany, Trip } from 'src/model/sadalsuud/Trip';
 import { Role } from 'src/model/sadalsuud/User';
 import { DbUser } from 'src/model/User';
 import { Validator } from 'src/Validator';
-import { DbService } from './DbService';
+import { DbServiceBak } from './DbServiceBak';
 import { TripService } from './TripService';
 import { UserService } from './users/UserService';
 
@@ -60,7 +60,7 @@ describe('TripService', () => {
     mockUserService = {};
     mockValidator = { validateTrip: jest.fn() };
 
-    bindings.rebind<DbService>(DbService).toConstantValue(mockDbService);
+    bindings.rebind<DbServiceBak>(DbServiceBak).toConstantValue(mockDbService);
     bindings.rebind<UserService>(UserService).toConstantValue(mockUserService);
     bindings.rebind<Validator>(Validator).toConstantValue(mockValidator);
 

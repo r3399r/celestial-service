@@ -9,7 +9,7 @@ import { Role } from 'src/model/altarf/User';
 import { AltarfEntity } from 'src/model/DbKey';
 import { DbUser } from 'src/model/User';
 import { Validator } from 'src/Validator';
-import { DbService } from './DbService';
+import { DbServiceBak } from './DbServiceBak';
 import { GoogleSheetService } from './GoogleSheetService';
 import { QuizService } from './QuizService';
 import { AltarfUserService } from './users/AltarfUserService';
@@ -123,7 +123,7 @@ describe('QuizService', () => {
     bindings
       .rebind<AltarfUserService>(AltarfUserService)
       .toConstantValue(mockAltarfUserService);
-    bindings.rebind<DbService>(DbService).toConstantValue(mockDbService);
+    bindings.rebind<DbServiceBak>(DbServiceBak).toConstantValue(mockDbService);
     bindings.rebind<Validator>(Validator).toConstantValue(mockValidator);
 
     quizService = bindings.get<QuizService>(QuizService);

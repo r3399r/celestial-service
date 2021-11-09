@@ -3,7 +3,7 @@ import { SadalsuudEntity } from 'src/model/DbKey';
 import { DbStar, Star } from 'src/model/sadalsuud/Star';
 import { StarPair } from 'src/model/sadalsuud/StarPair';
 import { Validator } from 'src/Validator';
-import { DbService } from './DbService';
+import { DbServiceBak } from './DbServiceBak';
 import { StarService } from './StarService';
 
 /**
@@ -43,7 +43,7 @@ describe('StarService', () => {
     };
     mockValidator = { validateStar: jest.fn(), validateStarPair: jest.fn() };
 
-    bindings.rebind<DbService>(DbService).toConstantValue(mockDbService);
+    bindings.rebind<DbServiceBak>(DbServiceBak).toConstantValue(mockDbService);
     bindings.rebind<Validator>(Validator).toConstantValue(mockValidator);
 
     starService = bindings.get<StarService>(StarService);

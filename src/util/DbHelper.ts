@@ -1,69 +1,79 @@
-import "reflect-metadata";
-import { DynamoDbBase } from "src/model/DbBase";
+import 'reflect-metadata';
+import { Base } from 'src/model/DbBase';
 
-export function Entity(entityName: string) {
-  return function (target: Function) {
+/**
+ * Example of DB Class:
+ * type Class = {
+ *   id: string;
+ *   name: string;
+ *   weekDay: string;
+ *   time: string;
+ * }
+ *
+ * @entity('class')
+ * export class ClassEntity implements Class {
+ *   @primaryAttribute()
+ *   public id: string;
+ *   public name: string;
+ *   public weekDay: string;
+ *   public time: string;
+ *
+ *   constructor(input: Class) {
+ *     this.id = input.id
+ *     this.name = input.name
+ *     this.weekDay = input.weekDay
+ *     this.time = input.time
+ *   }
+ * }
+ *
+ * And it generates something like:
+ * {
+ *     pk: 'demo#class#f0079556-c07e-466f-9b39-d7e4e380b86c',
+ *     sk: 'demo#class#f0079556-c07e-466f-9b39-d7e4e380b86c',
+ *     name: 'mathA',
+ *     weekDay: 'saturday',
+ *     time: '09:00-11:30'
+ * }
+ */
+
+export function entity(entityName: string): (target: Function) => void {
+  return (target: Function) => {
     Reflect.defineMetadata('Entity', entityName, target.prototype);
-  }
+  };
 }
 
-export function PrimaryAttribute() {
-  return function (target: Object, propertyKey: string) {
-    Reflect.defineMetadata('PK', propertyKey, target);
-  }
+export function primaryAttribute(): (
+  target: Object,
+  propertyKey: string
+) => void {
+  return (target: Object, propertyKey: string) => {
+    Reflect.defineMetadata('PrimaryAttribute', propertyKey, target);
+  };
 }
 
-export function Attribute() {
-  return function (target: Object, propertyKey: string) {
-    const metadata = Reflect.getMetadata('Attribute', target) || [];
-    Reflect.defineMetadata('Attribute', [...metadata, propertyKey], target);
-  }
+export function generateData<T>(input: T): Base & Omit<T, keyof T> {
+  const entityName: string = Reflect.getMetadata('Entity', input);
+  const key: keyof T = Reflect.getMetadata('PrimaryAttribute', input);
+  const pk = `demo#${entityName}#${input[key]}`;
+
+  const { [key]: deletedKey, ...rest } = input;
+
+  return { pk, sk: pk, ...rest };
 }
 
-export function RelatedAttribute() {
-  return function (target: Object, propertyKey: string) {
-    const metadata = Reflect.getMetadata('RelatedAttribute', target) || [];
-    Reflect.defineMetadata('RelatedAttribute', [...metadata, propertyKey], target);
-  }
-}
+export function generateRelationalData<T, K>(
+  parent: T,
+  child: K
+): Base & Omit<K, keyof K> {
+  const parentEntity: string = Reflect.getMetadata('Entity', parent);
+  const parentKey: keyof T = Reflect.getMetadata('PrimaryAttribute', parent);
+  const childEntity: string = Reflect.getMetadata('Entity', child);
+  const childKey: keyof K = Reflect.getMetadata('PrimaryAttribute', child);
 
-export function CommonAttribute() {
-  return function (target: Object, propertyKey: string) {
-    const metadata = Reflect.getMetadata('CommonAttribute', target) || [];
-    Reflect.defineMetadata('CommonAttribute', [...metadata, propertyKey], target);
-  }
-}
+  const pk = `demo#${parentEntity}#${parent[parentKey]}`;
+  const sk = `demo#${childEntity}#${child[childKey]}`;
 
-export function generateDynamoDbItem(input: any, pairPk?: string) {
-  if (input.id === undefined) throw new Error('typeError')
+  const { [childKey]: deletedKey, ...rest } = child;
 
-  let res: { [key: string]: any } & DynamoDbBase[] = []
-
-  const entity: string = Reflect.getMetadata('Entity', input)
-  const pk = pairPk !== undefined ? `demo#${pairPk}` : `demo#${entity}#${input.id}`
-  const sk = `demo#${entity}#${input.id}`
-  const dynamoDbItem: { [key: string]: any } & DynamoDbBase = { pk, sk, ...input }
-
-  const relatedAttributes: string[] = Reflect.getMetadata('RelatedAttribute', input) || []
-  Object.keys(input).forEach((key: string) => {
-    if (relatedAttributes.includes(key)) {
-      const mapping = generateDynamoDbItem(dynamoDbItem[key], `${entity}#${input.id}`)
-      res = [...mapping, ...res]
-    }
-  })
-
-  if (pairPk === undefined) {
-    const attributes: string[] = Reflect.getMetadata('Attribute', input) || []
-    Object.keys(input).forEach((key: string) => {
-      if (!attributes.includes(key)) delete dynamoDbItem[key]
-    })
-  } else {
-    const commonAttributes: string[] = Reflect.getMetadata('CommonAttribute', input) || []
-    Object.keys(input).forEach((key: string) => {
-      if (!commonAttributes.includes(key)) delete dynamoDbItem[key]
-    })
-  }
-
-  // let res = [dynamoDbItem];
-  return [...res, dynamoDbItem]
+  return { pk, sk, ...rest };
 }

@@ -2,7 +2,7 @@ import { bindings } from 'src/bindings';
 import { SadalsuudEntity } from 'src/model/DbKey';
 import { DbSign, Sign } from 'src/model/sadalsuud/Sign';
 import { Validator } from 'src/Validator';
-import { DbService } from './DbService';
+import { DbServiceBak } from './DbServiceBak';
 import { LineBotService } from './LineBotService';
 import { SignService } from './SignService';
 import { UserService } from './users/UserService';
@@ -37,7 +37,7 @@ describe('SignService', () => {
     mockLineBotService = { pushMessage: jest.fn() };
     mockValidator = { validateSign: jest.fn() };
 
-    bindings.rebind<DbService>(DbService).toConstantValue(mockDbService);
+    bindings.rebind<DbServiceBak>(DbServiceBak).toConstantValue(mockDbService);
     bindings.rebind<UserService>(UserService).toConstantValue(mockUserService);
     bindings
       .rebind<LineBotService>(LineBotService)

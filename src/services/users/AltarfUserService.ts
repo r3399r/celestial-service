@@ -3,7 +3,7 @@ import _ from 'lodash';
 import { Role, User } from 'src/model/altarf/User';
 import { AltarfEntity } from 'src/model/DbKey';
 import { DbUser } from 'src/model/User';
-import { DbService } from 'src/services/DbService';
+import { DbServiceBak } from 'src/services/DbServiceBak';
 import { UserService } from 'src/services/users/UserService';
 import { Validator } from 'src/Validator';
 
@@ -18,8 +18,8 @@ export class AltarfUserService {
   @inject(Validator)
   private readonly validator!: Validator;
 
-  @inject(DbService)
-  private readonly dbService!: DbService;
+  @inject(DbServiceBak)
+  private readonly dbService!: DbServiceBak;
 
   public async getUserById(lineUserId: string): Promise<DbUser> {
     return await this.userService.getUserById(lineUserId);

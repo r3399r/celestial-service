@@ -1,7 +1,9 @@
 {
   "name": "@y-celestial/service",
-  "version": "1.4.10",
+  "version": "1.4.12",
   "author": "Yue Chang",
+  "main": "index.js",
+  "types": "index.d.ts",
   "scripts": {
     "lint:ts": "tslint --project .",
     "fix:ts": "npm run lint:ts -- --fix",

@@ -7,7 +7,7 @@ import {
 import { bindings } from 'src/bindings';
 import { SadalsuudEntity } from 'src/model/DbKey';
 import { AWSMockUtil } from 'test/AWSMockUtil';
-import { DbService } from './DbService';
+import { DbServiceBak } from './DbServiceBak';
 
 interface DummyType {
   a: string;
@@ -17,7 +17,7 @@ interface DummyType {
  * Tests of the DbService class.
  */
 describe('DbService', () => {
-  let dbService: DbService;
+  let dbService: DbServiceBak;
   let mockDynamoDb: any;
   let dummyItem: DummyType;
 
@@ -29,7 +29,7 @@ describe('DbService', () => {
     mockDynamoDb = {};
     bindings.rebind<DynamoDB>(DynamoDB).toConstantValue(mockDynamoDb);
 
-    dbService = bindings.get<DbService>(DbService);
+    dbService = bindings.get<DbServiceBak>(DbServiceBak);
   });
 
   it('putItem should work', async () => {
