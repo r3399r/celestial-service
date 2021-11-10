@@ -29,6 +29,8 @@ jobs:
       - name: Tagging new package version
         run: |
           npm version ${{ github.event.inputs.sementicVersion }}
+          git config --global user.email "support+actions@github.com"
+          git config --global user.name "github-actions-bot"
           git push
           version=$(node -pe "require('./package.json').version")
           git push origin v$versionNew
