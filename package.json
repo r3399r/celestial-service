@@ -1,6 +1,6 @@
 {
   "name": "@y-celestial/service",
-  "version": "1.4.12",
+  "version": "1.5.0",
   "author": "Yue Chang",
   "main": "index.js",
   "types": "index.d.ts",
