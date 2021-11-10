@@ -22,6 +22,11 @@ jobs:
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v2
+      - uses: actions/setup-node@v2
+        with:
+          node-version: '14.x'
+          registry-url: 'https://registry.npmjs.org'
+          scope: '@y-celestial'
             
       - name: Install dependencies
         run: npm ci
@@ -30,4 +35,4 @@ jobs:
         run: npm run compile
 
       - name: Deploy npm package
-        run: npm publish --access public --@r3399r:registry=https://npm.pkg.github.com/
+        run: npm publish --access public
