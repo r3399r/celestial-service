@@ -1,7 +1,7 @@
 import { inject, injectable } from 'inversify';
 import { Entity } from 'src/model/DbKey';
 import { DbUser, User } from 'src/model/User';
-import { DbService } from 'src/services/DbService';
+import { DbServiceBak } from 'src/services/DbServiceBak';
 import { generateId } from 'src/util/generateId';
 
 /**
@@ -9,8 +9,8 @@ import { generateId } from 'src/util/generateId';
  */
 @injectable()
 export class UserService {
-  @inject(DbService)
-  private readonly dbService!: DbService;
+  @inject(DbServiceBak)
+  private readonly dbService!: DbServiceBak;
 
   public async getUserById(creationId: string): Promise<DbUser> {
     const projectEntity: Entity = process.env.ENTITY as Entity;

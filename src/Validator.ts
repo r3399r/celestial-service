@@ -15,15 +15,15 @@ import {
   User as SadalsuudUser,
 } from 'src/model/sadalsuud/User';
 import { DbUser } from 'src/model/User';
-import { DbService } from 'src/services/DbService';
+import { DbServiceBak } from 'src/services/DbServiceBak';
 
 /**
  * Validator for lambda input
  */
 @injectable()
 export class Validator {
-  @inject(DbService)
-  private readonly dbService!: DbService;
+  @inject(DbServiceBak)
+  private readonly dbService!: DbServiceBak;
 
   private async checkItemExists<T>(dbKey: DbKey): Promise<T> {
     const res: T | null = await this.dbService.getItem<T>(dbKey);

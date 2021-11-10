@@ -4,6 +4,7 @@ import { GoogleSpreadsheet } from 'google-spreadsheet';
 import { Container, interfaces } from 'inversify';
 import 'reflect-metadata';
 import { DbService } from 'src/services/DbService';
+import { DbServiceBak } from 'src/services/DbServiceBak';
 import { LineBotService } from 'src/services/LineBotService';
 import { LineLoginService } from 'src/services/LineLoginService';
 import { MeService } from 'src/services/MeService';
@@ -21,6 +22,7 @@ import { GoogleSheetService } from './services/GoogleSheetService';
 
 const container: Container = new Container();
 
+container.bind<DbServiceBak>(DbServiceBak).toSelf();
 container.bind<DbService>(DbService).toSelf();
 container.bind<LineBotService>(LineBotService).toSelf();
 container.bind<LineLoginService>(LineLoginService).toSelf();

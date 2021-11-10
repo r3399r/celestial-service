@@ -2,7 +2,7 @@ import { bindings } from 'src/bindings';
 import { Role, User } from 'src/model/altarf/User';
 import { AltarfEntity } from 'src/model/DbKey';
 import { DbUser } from 'src/model/User';
-import { DbService } from 'src/services/DbService';
+import { DbServiceBak } from 'src/services/DbServiceBak';
 import { Validator } from 'src/Validator';
 import { AltarfUserService } from './AltarfUserService';
 import { UserService } from './UserService';
@@ -64,7 +64,7 @@ describe('AltarfUserService', () => {
     };
 
     bindings.rebind<UserService>(UserService).toConstantValue(mockUserService);
-    bindings.rebind<DbService>(DbService).toConstantValue(mockDbService);
+    bindings.rebind<DbServiceBak>(DbServiceBak).toConstantValue(mockDbService);
     bindings.rebind<Validator>(Validator).toConstantValue(mockValidator);
 
     altarfUserService = bindings.get<AltarfUserService>(AltarfUserService);

@@ -23,7 +23,7 @@ import { GoogleSheetService } from 'src/services/GoogleSheetService';
 import { AltarfUserService } from 'src/services/users/AltarfUserService';
 import { generateId } from 'src/util/generateId';
 import { Validator } from 'src/Validator';
-import { DbService } from './DbService';
+import { DbServiceBak } from './DbServiceBak';
 
 export const spreadsheetBindingId: symbol = Symbol('spreadsheetId');
 
@@ -35,8 +35,8 @@ export class QuizService {
   @inject(AltarfUserService)
   private readonly userService!: AltarfUserService;
 
-  @inject(DbService)
-  private readonly dbService!: DbService;
+  @inject(DbServiceBak)
+  private readonly dbService!: DbServiceBak;
 
   @inject(Validator)
   private readonly validator!: Validator;

@@ -4,7 +4,7 @@ import { DbTrip, Trip } from 'src/model/sadalsuud/Trip';
 import { DbUser } from 'src/model/User';
 import { generateId } from 'src/util/generateId';
 import { Validator } from 'src/Validator';
-import { DbService } from './DbService';
+import { DbServiceBak } from './DbServiceBak';
 import { UserService } from './users/UserService';
 
 /**
@@ -12,8 +12,8 @@ import { UserService } from './users/UserService';
  */
 @injectable()
 export class TripService {
-  @inject(DbService)
-  private readonly dbService!: DbService;
+  @inject(DbServiceBak)
+  private readonly dbService!: DbServiceBak;
 
   @inject(UserService)
   private readonly userService!: UserService;

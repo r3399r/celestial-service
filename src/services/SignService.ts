@@ -3,15 +3,15 @@ import { SadalsuudEntity } from 'src/model/DbKey';
 import { DbSign, Sign } from 'src/model/sadalsuud/Sign';
 import { generateId } from 'src/util/generateId';
 import { Validator } from 'src/Validator';
-import { DbService } from './DbService';
+import { DbServiceBak } from './DbServiceBak';
 
 /**
  * Service class for trip signing up
  */
 @injectable()
 export class SignService {
-  @inject(DbService)
-  private readonly dbService!: DbService;
+  @inject(DbServiceBak)
+  private readonly dbService!: DbServiceBak;
 
   @inject(Validator)
   private readonly validator!: Validator;
