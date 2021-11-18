@@ -1,6 +1,6 @@
 {
   "name": "@y-celestial/service",
-  "version": "1.5.1",
+  "version": "1.5.5",
   "author": "Yue Chang",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -11,14 +11,15 @@
     "fix:format": "npm run lint:format -- --write",
     "lint": "run-p lint:*",
     "fix": "run-s fix:*",
-    "clean": "del-cli dist -f",
+    "clean": "del-cli dist lib -f",
     "build": "webpack --config webpack.config.js",
     "compile": "ttsc",
     "test": "jest -c jest.config.js",
     "test:coverage": "npm run test -- --coverage --verbose",
     "test:lambda": "npm run build:lambda && sam local invoke -t aws/cloudformation/template.yaml -e test/event.json LambdaHelpMe",
     "pre:commit": "run-s lint test",
-    "pre:deploy": "run-s clean build"
+    "pre:deploy": "run-s clean build",
+    "post:publish": "run-s clean compile & npm publish"
   },
   "dependencies": {
     "@line/bot-sdk": "^7.2.0",
