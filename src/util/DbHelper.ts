@@ -51,10 +51,13 @@ export function primaryAttribute(): (
   };
 }
 
-export function generateData<T>(input: T): Base & Omit<T, keyof T> {
+export function generateData<T>(
+  input: T,
+  alias: string
+): Base & Omit<T, keyof T> {
   const entityName: string = Reflect.getMetadata('Entity', input);
   const key: keyof T = Reflect.getMetadata('PrimaryAttribute', input);
-  const pk = `demo#${entityName}#${input[key]}`;
+  const pk = `${alias}#${entityName}#${input[key]}`;
 
   const { [key]: deletedKey, ...rest } = input;
 
@@ -63,15 +66,16 @@ export function generateData<T>(input: T): Base & Omit<T, keyof T> {
 
 export function generateRelationalData<T, K>(
   parent: T,
-  child: K
+  child: K,
+  alias: string
 ): Base & Omit<K, keyof K> {
   const parentEntity: string = Reflect.getMetadata('Entity', parent);
   const parentKey: keyof T = Reflect.getMetadata('PrimaryAttribute', parent);
   const childEntity: string = Reflect.getMetadata('Entity', child);
   const childKey: keyof K = Reflect.getMetadata('PrimaryAttribute', child);
 
-  const pk = `demo#${parentEntity}#${parent[parentKey]}`;
-  const sk = `demo#${childEntity}#${child[childKey]}`;
+  const pk = `${alias}#${parentEntity}#${parent[parentKey]}`;
+  const sk = `${alias}#${childEntity}#${child[childKey]}`;
 
   const { [childKey]: deletedKey, ...rest } = child;
 

@@ -1,14 +1,13 @@
 import { Client } from '@line/bot-sdk';
 import { DynamoDB } from 'aws-sdk';
-import { GoogleSpreadsheet } from 'google-spreadsheet';
-import { Container, interfaces } from 'inversify';
+import { Container } from 'inversify';
 import 'reflect-metadata';
 import { DbService } from 'src/services/DbService';
 import { DbServiceBak } from 'src/services/DbServiceBak';
 import { LineBotService } from 'src/services/LineBotService';
 import { LineLoginService } from 'src/services/LineLoginService';
 import { MeService } from 'src/services/MeService';
-import { QuizService, spreadsheetBindingId } from 'src/services/QuizService';
+import { QuizService } from 'src/services/QuizService';
 import { SignService } from 'src/services/SignService';
 import { SsmService } from 'src/services/SsmService';
 import { StarService } from 'src/services/StarService';
@@ -45,12 +44,12 @@ container.bind<Client>(Client).toDynamicValue(
       channelSecret: String(process.env.CHANNEL_SECRET),
     })
 );
-container
-  .bind<GoogleSpreadsheet>(GoogleSpreadsheet)
-  .toDynamicValue(
-    (context: interfaces.Context) =>
-      new GoogleSpreadsheet(context.container.get(spreadsheetBindingId))
-  );
+// container
+//   .bind<GoogleSpreadsheet>(GoogleSpreadsheet)
+//   .toDynamicValue(
+//     (context: interfaces.Context) =>
+//       new GoogleSpreadsheet(context.container.get(spreadsheetBindingId))
+//   );
 
 // validator
 container.bind<Validator>(Validator).toSelf();
