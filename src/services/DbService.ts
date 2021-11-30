@@ -1,12 +1,14 @@
 import { DynamoDB } from 'aws-sdk';
 import {
+  AttributeMap,
   Converter,
+  GetItemInput,
   PutItemInput,
-  PutItemOutput,
   QueryInput,
 } from 'aws-sdk/clients/dynamodb';
 import { inject, injectable } from 'inversify';
 import { Base } from 'src/model/DbBase';
+import { generateData, record2Data } from 'src/util/DbHelper';
 
 /**
  * Service class for AWS dynamoDB
@@ -25,21 +27,99 @@ export class DbService {
         ':pk': { S: key.pk },
         ':sk': { S: key.sk },
       },
-      KeyConditionExpression: `pk = :pk AND sk = :sk`,
+      KeyConditionExpression: 'pk = :pk AND sk = :sk',
     };
     const res = await this.dynamoDb.query(params).promise();
     if (res.Count !== undefined && res.Count > 0)
       throw new Error('Record of this key already exists.');
   }
 
-  public async createItem<T>(item: T & Base): Promise<PutItemOutput> {
-    await this.checkItemExist({ pk: item.pk, sk: item.sk });
+  public async createItem<T>(alias: string, item: T): Promise<void> {
+    const record = generateData(item, alias);
+    await this.checkItemExist({ pk: record.pk, sk: record.sk });
 
     const params: PutItemInput = {
       TableName: this.tableName,
-      Item: Converter.marshall(item),
+      Item: Converter.marshall(record),
+    };
+    await this.dynamoDb.putItem(params).promise();
+
+    await this.updateListItem(record.pk);
+  }
+
+  private async updateListItem(pk: string): Promise<void> {
+    const params: QueryInput = {
+      TableName: this.tableName,
+      ExpressionAttributeValues: {
+        ':pk': { S: pk },
+      },
+      KeyConditionExpression: 'pk = :pk',
+    };
+    const raw = await this.dynamoDb.query(params).promise();
+    if (raw.Items === undefined || raw.Items.length === 0)
+      throw new Error('Unexpected Error, new update is not applied.');
+
+    let res: any = {};
+
+    const keys = pk.split('#');
+    res.pk = `${keys[0]}#${keys[1]}`;
+    res.sk = pk;
+
+    raw.Items.forEach((v: AttributeMap) => {
+      const item = Converter.unmarshall(v) as Base & { [key: string]: any };
+      if (item.pk === item.sk) res = { ...item, ...res };
+      else {
+        const fk = item.sk.split('#')[1];
+        if (res[fk] === undefined) res[fk] = item;
+        else res[fk] = [...res[fk], item];
+      }
+    });
+
+    const putItemParams: PutItemInput = {
+      TableName: this.tableName,
+      Item: Converter.marshall(res),
+    };
+    await this.dynamoDb.putItem(putItemParams).promise();
+  }
+
+  public async getItem<T>(
+    alias: string,
+    schema: string,
+    id: string
+  ): Promise<T> {
+    const params: GetItemInput = {
+      TableName: this.tableName,
+      Key: {
+        pk: { S: `${alias}#${schema}` },
+        sk: { S: `${alias}#${schema}#${id}` },
+      },
+    };
+    const raw = await this.dynamoDb.getItem(params).promise();
+    if (raw.Item === undefined) throw new Error('Record not found.');
+
+    const item = Converter.unmarshall(raw.Item) as Base & {
+      [key: string]: any;
     };
 
-    return await this.dynamoDb.putItem(params).promise();
+    return record2Data(item);
+  }
+
+  public async getItems<T>(alias: string, schema: string): Promise<T[]> {
+    const params: QueryInput = {
+      TableName: this.tableName,
+      ExpressionAttributeValues: {
+        ':pk': { S: `${alias}#${schema}` },
+      },
+      KeyConditionExpression: 'pk = :pk',
+    };
+    const raw = await this.dynamoDb.query(params).promise();
+    if (raw.Items === undefined || raw.Items.length === 0)
+      throw new Error('Record not found.');
+
+    return raw.Items.map((v: AttributeMap) => {
+      const item = Converter.unmarshall(v) as Base & { [key: string]: any };
+
+      return record2Data(item);
+    });
   }
 }

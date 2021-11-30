@@ -59,9 +59,7 @@ export function generateData<T>(
   const key: keyof T = Reflect.getMetadata('PrimaryAttribute', input);
   const pk = `${alias}#${entityName}#${input[key]}`;
 
-  const { [key]: deletedKey, ...rest } = input;
-
-  return { pk, sk: pk, ...rest };
+  return { pk, sk: pk, ...input };
 }
 
 export function generateRelationalData<T, K>(
@@ -77,7 +75,11 @@ export function generateRelationalData<T, K>(
   const pk = `${alias}#${parentEntity}#${parent[parentKey]}`;
   const sk = `${alias}#${childEntity}#${child[childKey]}`;
 
-  const { [childKey]: deletedKey, ...rest } = child;
+  return { pk, sk, ...child };
+}
 
-  return { pk, sk, ...rest };
+export function record2Data<T>(record: Base & { [key: string]: any }): T {
+  const { pk, sk, ...rest } = record;
+
+  return rest as T;
 }
