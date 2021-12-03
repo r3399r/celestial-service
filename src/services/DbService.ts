@@ -7,6 +7,7 @@ import {
   QueryInput,
 } from 'aws-sdk/clients/dynamodb';
 import { inject, injectable } from 'inversify';
+import { ERROR_CODE } from 'src/constant/error';
 import { Base } from 'src/model/DbBase';
 import { generateData, record2Data } from 'src/util/DbHelper';
 
@@ -31,7 +32,7 @@ export class DbService {
     };
     const res = await this.dynamoDb.query(params).promise();
     if (res.Count !== undefined && res.Count > 0)
-      throw new Error('Record of this key already exists.');
+      throw new Error(ERROR_CODE.RECORD_EXIST);
   }
 
   public async createItem<T>(alias: string, item: T): Promise<void> {
@@ -57,7 +58,7 @@ export class DbService {
     };
     const raw = await this.dynamoDb.query(params).promise();
     if (raw.Items === undefined || raw.Items.length === 0)
-      throw new Error('Unexpected Error, new update is not applied.');
+      throw new Error(ERROR_CODE.UNEXPECTED_ERROR);
 
     let res: any = {};
 
@@ -95,7 +96,7 @@ export class DbService {
       },
     };
     const raw = await this.dynamoDb.getItem(params).promise();
-    if (raw.Item === undefined) throw new Error('Record not found.');
+    if (raw.Item === undefined) throw new Error(ERROR_CODE.RECORD_NOT_FOUND);
 
     const item = Converter.unmarshall(raw.Item) as Base & {
       [key: string]: any;
@@ -114,7 +115,7 @@ export class DbService {
     };
     const raw = await this.dynamoDb.query(params).promise();
     if (raw.Items === undefined || raw.Items.length === 0)
-      throw new Error('Record not found.');
+      throw new Error(ERROR_CODE.RECORD_NOT_FOUND);
 
     return raw.Items.map((v: AttributeMap) => {
       const item = Converter.unmarshall(v) as Base & { [key: string]: any };

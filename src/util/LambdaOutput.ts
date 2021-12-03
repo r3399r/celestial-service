@@ -1,8 +1,4 @@
-export interface LambdaOutput {
-  statusCode: number;
-  headers: { [key: string]: string };
-  body: string;
-}
+import { LambdaOutput } from 'src/model/Lambda';
 
 export function successOutput<T>(res: T): LambdaOutput {
   return {
