@@ -52,6 +52,71 @@ export class DbService {
     await this.updateListItem(record.pk);
   }
 
+  public async deleteItem(
+    alias: string,
+    schema: string,
+    key: string
+  ): Promise<void> {
+    const primaryKey = `${alias}#${schema}#${key}`;
+
+    const [raw1, raw2] = await Promise.all([
+      this.dynamoDb
+        .query({
+          TableName: this.tableName,
+          ExpressionAttributeValues: {
+            ':pk': { S: primaryKey },
+          },
+          KeyConditionExpression: 'pk = :pk',
+        })
+        .promise(),
+      this.dynamoDb
+        .query({
+          TableName: this.tableName,
+          IndexName: 'sk-pk-index',
+          ExpressionAttributeValues: {
+            ':sk': { S: primaryKey },
+          },
+          KeyConditionExpression: 'sk = :sk',
+        })
+        .promise(),
+    ]);
+
+    if (raw1.Items === undefined || raw1.Items.length === 0)
+      throw new Error(ERROR_CODE.RECORD_NOT_FOUND);
+
+    if (raw2.Items === undefined || raw2.Items.length === 0)
+      throw new Error(ERROR_CODE.RECORD_NOT_FOUND);
+
+    const threads: any[] = [];
+
+    raw1.Items.forEach((v: AttributeMap) => {
+      if (v.pk !== v.sk)
+        threads.push(
+          this.dynamoDb
+            .deleteItem({
+              TableName: this.tableName,
+              Key: { pk: v.pk, sk: v.sk },
+            })
+            .promise()
+        );
+    });
+
+    raw2.Items.forEach((v: AttributeMap) => {
+      threads.push(
+        this.dynamoDb
+          .deleteItem({
+            TableName: this.tableName,
+            Key: { pk: v.pk, sk: v.sk },
+          })
+          .promise()
+      );
+    });
+
+    await Promise.all(threads);
+
+    // should refresh the list of items which includes he deleted item
+  }
+
   public async putItem<T>(alias: string, item: T): Promise<void> {
     const record = generateData(item, alias);
     await this.checkIfItemExist({ pk: record.pk, sk: record.sk }, true);
