@@ -20,7 +20,7 @@ export class DbService {
   private readonly dynamoDb!: DynamoDB;
   private readonly tableName: string = `celestial-db-${process.env.ENVR}`;
 
-  private async checkItemExist(key: Base): Promise<any> {
+  private async checkIfItemExist(key: Base, wantExist: boolean): Promise<any> {
     const params: QueryInput = {
       TableName: this.tableName,
       Select: 'COUNT',
@@ -31,13 +31,30 @@ export class DbService {
       KeyConditionExpression: 'pk = :pk AND sk = :sk',
     };
     const res = await this.dynamoDb.query(params).promise();
-    if (res.Count !== undefined && res.Count > 0)
+
+    if (wantExist && res.Count !== undefined && res.Count === 0)
+      throw new Error(ERROR_CODE.RECORD_NOT_FOUND);
+
+    if (!wantExist && res.Count !== undefined && res.Count > 0)
       throw new Error(ERROR_CODE.RECORD_EXIST);
   }
 
   public async createItem<T>(alias: string, item: T): Promise<void> {
     const record = generateData(item, alias);
-    await this.checkItemExist({ pk: record.pk, sk: record.sk });
+    await this.checkIfItemExist({ pk: record.pk, sk: record.sk }, false);
+
+    const params: PutItemInput = {
+      TableName: this.tableName,
+      Item: Converter.marshall(record),
+    };
+    await this.dynamoDb.putItem(params).promise();
+
+    await this.updateListItem(record.pk);
+  }
+
+  public async putItem<T>(alias: string, item: T): Promise<void> {
+    const record = generateData(item, alias);
+    await this.checkIfItemExist({ pk: record.pk, sk: record.sk }, true);
 
     const params: PutItemInput = {
       TableName: this.tableName,
