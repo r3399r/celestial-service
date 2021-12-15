@@ -2,84 +2,104 @@ import 'reflect-metadata';
 import { Base } from 'src/model/DbBase';
 
 /**
- * Example of DB Class:
- * type Class = {
- *   id: string;
- *   name: string;
- *   weekDay: string;
- *   time: string;
- * }
- *
- * @entity('class')
- * export class ClassEntity implements Class {
- *   @primaryAttribute()
- *   public id: string;
- *   public name: string;
- *   public weekDay: string;
- *   public time: string;
- *
- *   constructor(input: Class) {
- *     this.id = input.id
- *     this.name = input.name
- *     this.weekDay = input.weekDay
- *     this.time = input.time
- *   }
- * }
- *
- * And it generates something like:
- * {
- *     pk: 'demo#class#f0079556-c07e-466f-9b39-d7e4e380b86c',
- *     sk: 'demo#class#f0079556-c07e-466f-9b39-d7e4e380b86c',
- *     name: 'mathA',
- *     weekDay: 'saturday',
- *     time: '09:00-11:30'
- * }
+ * This util is a practice for the adjacency list design patter
+ * use decorator to configure the relationship
+ * example can be found in unit test
  */
-
-export function entity(entityName: string): (target: Function) => void {
+export function entity(entityName: string): ClassDecorator {
   return (target: Function) => {
-    Reflect.defineMetadata('Entity', entityName, target.prototype);
+    Reflect.defineMetadata('entity', entityName, target.prototype);
   };
 }
 
-export function primaryAttribute(): (
-  target: Object,
-  propertyKey: string
-) => void {
-  return (target: Object, propertyKey: string) => {
-    Reflect.defineMetadata('PrimaryAttribute', propertyKey, target);
+export function primaryAttribute(): PropertyDecorator {
+  return (target: Object, key: string | symbol) => {
+    Reflect.defineMetadata('primaryAttribute', key, target);
   };
 }
 
-export function generateData<T>(
+export function relatedAttributeOne(): PropertyDecorator {
+  return (target: Object, key: string | symbol) => {
+    const attributes = Reflect.getMetadata('relatedAttributeOne', target) ?? [];
+    Reflect.defineMetadata('relatedAttributeOne', [...attributes, key], target);
+  };
+}
+
+export function relatedAttributeMany(): PropertyDecorator {
+  return (target: Object, key: string | symbol) => {
+    const attributes =
+      Reflect.getMetadata('relatedAttributeMany', target) ?? [];
+    Reflect.defineMetadata(
+      'relatedAttributeMany',
+      [...attributes, key],
+      target
+    );
+  };
+}
+
+export function data2Record<T>(
   input: T,
-  alias: string
-): Base & Omit<T, keyof T> {
-  const entityName: string = Reflect.getMetadata('Entity', input);
-  const key: keyof T = Reflect.getMetadata('PrimaryAttribute', input);
-  const pk = `${alias}#${entityName}#${input[key]}`;
+  alias: string,
+  pk?: string,
+  attribute?: string
+): (Base & { [key: string]: any })[] {
+  const entityName: string = Reflect.getMetadata('entity', input);
+  const primary: keyof T = Reflect.getMetadata('primaryAttribute', input);
+  const key = `${alias}#${entityName}#${input[primary]}`;
 
-  return { pk, sk: pk, ...input };
+  const main = {
+    pk: pk ?? key,
+    sk: key,
+    attribute,
+    ...input,
+  };
+
+  let relatedOne: (Base & { [key: string]: any })[] = [];
+  const relatedMany: (Base & { [key: string]: any })[] = [];
+  if (pk === undefined) {
+    const attributesOne =
+      Reflect.getMetadata('relatedAttributeOne', input) ?? [];
+    relatedOne = attributesOne.map((v: string) => {
+      delete main[v as keyof T];
+
+      return data2Record(input[v as keyof T], alias, key, `${v}#one`)[0];
+    });
+
+    const attributesMany =
+      Reflect.getMetadata('relatedAttributeMany', input) ?? [];
+    attributesMany.forEach((v: string) => {
+      const temp = input[v as keyof T];
+      delete main[v as keyof T];
+      if (!Array.isArray(temp))
+        throw new Error(`wrong format. ${v} should be an array`);
+      temp.forEach((o: any) => {
+        relatedMany.push(data2Record(o, alias, key, `${v}#many`)[0]);
+      });
+    });
+  }
+
+  return [main, ...relatedOne, ...relatedMany];
 }
 
-export function generateRelationalData<T, K>(
-  parent: T,
-  child: K,
-  alias: string
-): Base & Omit<K, keyof K> {
-  const parentEntity: string = Reflect.getMetadata('Entity', parent);
-  const parentKey: keyof T = Reflect.getMetadata('PrimaryAttribute', parent);
-  const childEntity: string = Reflect.getMetadata('Entity', child);
-  const childKey: keyof K = Reflect.getMetadata('PrimaryAttribute', child);
+export function record2Data<T>(record: (Base & { [key: string]: any })[]): T {
+  let data: Partial<T> = {};
+  record.forEach((v: Base & { [key: string]: any }) => {
+    const { pk, sk, attribute, ...rest } = v;
+    if (v.attribute === undefined) data = { ...data, ...rest };
+    else {
+      const attributeName: keyof T = v.attribute.split('#')[0] as keyof T;
+      const attributeType = v.attribute.split('#')[1];
 
-  const pk = `${alias}#${parentEntity}#${parent[parentKey]}`;
-  const sk = `${alias}#${childEntity}#${child[childKey]}`;
+      if (attributeType === 'one') data = { ...data, [attributeName]: rest };
+      else if (data[attributeName] === undefined)
+        data = { ...data, [attributeName]: [rest] };
+      else {
+        const oldAttribute = data[attributeName];
+        if (Array.isArray(oldAttribute))
+          data = { ...data, [attributeName]: [...oldAttribute, rest] };
+      }
+    }
+  });
 
-  return { pk, sk, ...child };
-}
-
-export function record2Data<T>(record: Base & { [key: string]: any }): T {
-  const { pk, sk, ...rest } = record;
-
-  return rest as T;
+  return data as T;
 }

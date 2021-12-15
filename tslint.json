@@ -80,6 +80,7 @@
       true,
       "log"
     ],
+    "no-dynamic-delete": false,
     // deprecated
     "no-function-constructor-with-string-args": false,
     // allow packages

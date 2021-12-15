@@ -9,7 +9,7 @@ import {
 import { inject, injectable } from 'inversify';
 import { ERROR_CODE } from 'src/constant/error';
 import { Base } from 'src/model/DbBase';
-import { generateData, record2Data } from 'src/util/DbHelper';
+import { data2Record, record2Data } from 'src/util/DbHelper';
 
 /**
  * Service class for AWS dynamoDB
@@ -20,7 +20,10 @@ export class DbService {
   private readonly dynamoDb!: DynamoDB;
   private readonly tableName: string = `celestial-db-${process.env.ENVR}`;
 
-  private async checkIfItemExist(key: Base, wantExist: boolean): Promise<any> {
+  private async checkIfItemExist(
+    key: Omit<Base, 'attribute'>,
+    wantExist: boolean
+  ): Promise<any> {
     const params: QueryInput = {
       TableName: this.tableName,
       Select: 'COUNT',
@@ -40,8 +43,8 @@ export class DbService {
   }
 
   public async createItem<T>(alias: string, item: T): Promise<void> {
-    const record = generateData(item, alias);
-    await this.checkIfItemExist({ pk: record.pk, sk: record.sk }, false);
+    const record = data2Record(item, alias);
+    await this.checkIfItemExist({ pk: record[0].pk, sk: record[0].sk }, false);
 
     const params: PutItemInput = {
       TableName: this.tableName,
@@ -49,7 +52,7 @@ export class DbService {
     };
     await this.dynamoDb.putItem(params).promise();
 
-    await this.updateListItem(record.pk);
+    await this.updateListItem(record[0].pk);
   }
 
   public async deleteItem(
@@ -87,7 +90,7 @@ export class DbService {
     if (raw2.Items === undefined || raw2.Items.length === 0)
       throw new Error(ERROR_CODE.RECORD_NOT_FOUND);
 
-    const threads: any[] = [];
+    const threads: Promise<any>[] = [];
 
     raw1.Items.forEach((v: AttributeMap) => {
       if (v.pk !== v.sk)
@@ -118,8 +121,8 @@ export class DbService {
   }
 
   public async putItem<T>(alias: string, item: T): Promise<void> {
-    const record = generateData(item, alias);
-    await this.checkIfItemExist({ pk: record.pk, sk: record.sk }, true);
+    const record = data2Record(item, alias);
+    await this.checkIfItemExist({ pk: record[0].pk, sk: record[0].sk }, true);
 
     const params: PutItemInput = {
       TableName: this.tableName,
@@ -127,7 +130,7 @@ export class DbService {
     };
     await this.dynamoDb.putItem(params).promise();
 
-    await this.updateListItem(record.pk);
+    await this.updateListItem(record[0].pk);
   }
 
   private async updateListItem(pk: string): Promise<void> {
@@ -180,11 +183,7 @@ export class DbService {
     const raw = await this.dynamoDb.getItem(params).promise();
     if (raw.Item === undefined) throw new Error(ERROR_CODE.RECORD_NOT_FOUND);
 
-    const item = Converter.unmarshall(raw.Item) as Base & {
-      [key: string]: any;
-    };
-
-    return record2Data(item);
+    return Converter.unmarshall(raw.Item) as T;
   }
 
   public async getItems<T>(alias: string, schema: string): Promise<T[]> {
@@ -199,10 +198,11 @@ export class DbService {
     if (raw.Items === undefined || raw.Items.length === 0)
       throw new Error(ERROR_CODE.RECORD_NOT_FOUND);
 
-    return raw.Items.map((v: AttributeMap) => {
-      const item = Converter.unmarshall(v) as Base & { [key: string]: any };
-
-      return record2Data(item);
-    });
+    return record2Data(
+      raw.Items.map(
+        (v: AttributeMap) =>
+          Converter.unmarshall(v) as Base & { [key: string]: any }
+      )
+    );
   }
 }
