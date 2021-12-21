@@ -54,27 +54,30 @@ export function data2Record<T>(
     ...input,
   };
 
-  let relatedOne: (Base & { [key: string]: any })[] = [];
+  const relatedOne: (Base & { [key: string]: any })[] = [];
   const relatedMany: (Base & { [key: string]: any })[] = [];
   if (pk === undefined) {
     const attributesOne =
       Reflect.getMetadata('relatedAttributeOne', input) ?? [];
-    relatedOne = attributesOne.map((v: string) => {
+    attributesOne.forEach((v: string) => {
+      const item = input[v as keyof T];
       delete main[v as keyof T];
-
-      return data2Record(input[v as keyof T], alias, key, `${v}#one`)[0];
+      if (item !== undefined)
+        relatedOne.push(data2Record(item, alias, key, `${v}#one`)[0]);
     });
 
     const attributesMany =
       Reflect.getMetadata('relatedAttributeMany', input) ?? [];
     attributesMany.forEach((v: string) => {
-      const temp = input[v as keyof T];
+      const items = input[v as keyof T];
       delete main[v as keyof T];
-      if (!Array.isArray(temp))
-        throw new Error(`wrong format. ${v} should be an array`);
-      temp.forEach((o: any) => {
-        relatedMany.push(data2Record(o, alias, key, `${v}#many`)[0]);
-      });
+      if (items !== undefined) {
+        if (!Array.isArray(items))
+          throw new Error(`wrong format. ${v} should be an array`);
+        items.forEach((o: any) => {
+          relatedMany.push(data2Record(o, alias, key, `${v}#many`)[0]);
+        });
+      }
     });
   }
 

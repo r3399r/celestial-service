@@ -193,7 +193,7 @@ describe('DbHelper', () => {
 
   it('data2Record should fail', () => {
     expect(() =>
-      data2Record(new WrongClassEntity({ id: 'a' }), alias)
+      data2Record(new WrongClassEntity({ id: 'a', member: 'b' }), alias)
     ).toThrowError('wrong format. member should be an array');
   });
 

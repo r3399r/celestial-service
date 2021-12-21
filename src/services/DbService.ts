@@ -46,11 +46,16 @@ export class DbService {
     const record = data2Record(item, alias);
     await this.checkIfItemExist({ pk: record[0].pk, sk: record[0].sk }, false);
 
-    const params: PutItemInput = {
-      TableName: this.tableName,
-      Item: Converter.marshall(record),
-    };
-    await this.dynamoDb.putItem(params).promise();
+    await Promise.all(
+      record.map(async (v: Base & { [key: string]: any }) => {
+        const params: PutItemInput = {
+          TableName: this.tableName,
+          Item: Converter.marshall(v),
+        };
+
+        return this.dynamoDb.putItem(params).promise();
+      })
+    );
 
     await this.updateListItem(record[0].pk);
   }
@@ -124,11 +129,16 @@ export class DbService {
     const record = data2Record(item, alias);
     await this.checkIfItemExist({ pk: record[0].pk, sk: record[0].sk }, true);
 
-    const params: PutItemInput = {
-      TableName: this.tableName,
-      Item: Converter.marshall(record),
-    };
-    await this.dynamoDb.putItem(params).promise();
+    await Promise.all(
+      record.map(async (v: Base & { [key: string]: any }) => {
+        const params: PutItemInput = {
+          TableName: this.tableName,
+          Item: Converter.marshall(v),
+        };
+
+        return this.dynamoDb.putItem(params).promise();
+      })
+    );
 
     await this.updateListItem(record[0].pk);
   }
