@@ -140,10 +140,10 @@ export class DbService {
       })
     );
 
-    await this.updateListItem(record[0].pk);
+    await this.updateListItem<T>(record[0].pk);
   }
 
-  private async updateListItem(pk: string): Promise<void> {
+  private async updateListItem<T>(pk: string): Promise<void> {
     const params: QueryInput = {
       TableName: this.tableName,
       ExpressionAttributeValues: {
@@ -155,25 +155,18 @@ export class DbService {
     if (raw.Items === undefined || raw.Items.length === 0)
       throw new Error(ERROR_CODE.UNEXPECTED_ERROR);
 
-    let res: any = {};
+    const res = record2Data<T>(
+      raw.Items.map(
+        (v: AttributeMap) =>
+          Converter.unmarshall(v) as Base & { [key: string]: any }
+      )
+    );
 
-    const keys = pk.split('#');
-    res.pk = `${keys[0]}#${keys[1]}`;
-    res.sk = pk;
-
-    raw.Items.forEach((v: AttributeMap) => {
-      const item = Converter.unmarshall(v) as Base & { [key: string]: any };
-      if (item.pk === item.sk) res = { ...item, ...res };
-      else {
-        const fk = item.sk.split('#')[1];
-        if (res[fk] === undefined) res[fk] = item;
-        else res[fk] = [...res[fk], item];
-      }
-    });
-
+    const alias = pk.split('#')[0];
+    const schema = pk.split('#')[1];
     const putItemParams: PutItemInput = {
       TableName: this.tableName,
-      Item: Converter.marshall(res),
+      Item: Converter.marshall({ pk: `${alias}#${schema}`, sk: pk, ...res }),
     };
     await this.dynamoDb.putItem(putItemParams).promise();
   }
@@ -193,7 +186,11 @@ export class DbService {
     const raw = await this.dynamoDb.getItem(params).promise();
     if (raw.Item === undefined) throw new Error(ERROR_CODE.RECORD_NOT_FOUND);
 
-    return Converter.unmarshall(raw.Item) as T;
+    const { pk, sk, attribute, ...rest } = Converter.unmarshall(
+      raw.Item
+    ) as Base & { [key: string]: any };
+
+    return rest as T;
   }
 
   public async getItems<T>(alias: string, schema: string): Promise<T[]> {
@@ -208,11 +205,12 @@ export class DbService {
     if (raw.Items === undefined || raw.Items.length === 0)
       throw new Error(ERROR_CODE.RECORD_NOT_FOUND);
 
-    return record2Data(
-      raw.Items.map(
-        (v: AttributeMap) =>
-          Converter.unmarshall(v) as Base & { [key: string]: any }
-      )
-    );
+    return raw.Items.map((v: AttributeMap) => {
+      const { pk, sk, attribute, ...rest } = Converter.unmarshall(v) as Base & {
+        [key: string]: any;
+      };
+
+      return rest as T;
+    });
   }
 }
