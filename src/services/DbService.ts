@@ -67,7 +67,8 @@ export class DbService {
   ): Promise<void> {
     const primaryKey = `${alias}#${schema}#${key}`;
 
-    const [raw1, raw2] = await Promise.all([
+    // prepare items with pk=primarKey or sk=primaryKey
+    const [mainItem, relatedItem] = await Promise.all([
       this.dynamoDb
         .query({
           TableName: this.tableName,
@@ -85,44 +86,43 @@ export class DbService {
             ':sk': { S: primaryKey },
           },
           KeyConditionExpression: 'sk = :sk',
+          FilterExpression: 'pk <> :sk',
         })
         .promise(),
     ]);
 
-    if (raw1.Items === undefined || raw1.Items.length === 0)
+    if (
+      mainItem.Items === undefined ||
+      mainItem.Items.length === 0 ||
+      relatedItem.Items === undefined ||
+      relatedItem.Items.length === 0
+    )
       throw new Error(ERROR_CODE.RECORD_NOT_FOUND);
 
-    if (raw2.Items === undefined || raw2.Items.length === 0)
-      throw new Error(ERROR_CODE.RECORD_NOT_FOUND);
-
-    const threads: Promise<any>[] = [];
-
-    raw1.Items.forEach((v: AttributeMap) => {
-      if (v.pk !== v.sk)
-        threads.push(
-          this.dynamoDb
-            .deleteItem({
-              TableName: this.tableName,
-              Key: { pk: v.pk, sk: v.sk },
-            })
-            .promise()
-        );
-    });
-
-    raw2.Items.forEach((v: AttributeMap) => {
-      threads.push(
-        this.dynamoDb
+    await Promise.all([
+      ...mainItem.Items.map(async (v: AttributeMap) => {
+        return this.dynamoDb
           .deleteItem({
             TableName: this.tableName,
             Key: { pk: v.pk, sk: v.sk },
           })
-          .promise()
-      );
-    });
+          .promise();
+      }),
+      ...relatedItem.Items.map(async (v: AttributeMap) => {
+        return this.dynamoDb
+          .deleteItem({
+            TableName: this.tableName,
+            Key: { pk: v.pk, sk: v.sk },
+          })
+          .promise();
+      }),
+    ]);
 
-    await Promise.all(threads);
-
-    // should refresh the list of items which includes he deleted item
+    await Promise.all(
+      relatedItem.Items.map(async (v: AttributeMap) => {
+        return this.updateListItem(v.pk.S as string);
+      })
+    );
   }
 
   public async putItem<T>(alias: string, item: T): Promise<void> {
