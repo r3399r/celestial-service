@@ -71,7 +71,7 @@ describe('DbService', () => {
 
     await expect(() =>
       dbService.createItem('alias', newUser)
-    ).rejects.toThrowError(ERROR_CODE.UNEXPECTED_ERROR);
+    ).rejects.toThrowError(ERROR_CODE.RECORD_NOT_FOUND);
   });
 
   it('createItem should fail if item exists', async () => {
@@ -88,17 +88,22 @@ describe('DbService', () => {
   });
 
   it('putItem should work', async () => {
-    const updatedUser = new TestUserEntity({
+    const oldUser = new TestUserEntity({
+      id: 'test-id',
+      name: 'new-name',
+    });
+    const newUser = new TestUserEntity({
       id: 'test-id',
       name: 'test-name',
     });
 
     mockDynamoDb.query = jest
       .fn()
-      .mockReturnValueOnce(awsMock({ Count: 1 }))
-      .mockReturnValue(awsMock({ Items: [Converter.marshall(updatedUser)] }));
+      .mockReturnValueOnce(awsMock({ Items: [Converter.marshall(oldUser)] }))
+      .mockReturnValue(awsMock({ Items: [Converter.marshall(newUser)] }));
 
-    await dbService.putItem('alias', updatedUser);
+    await dbService.putItem('alias', newUser);
+    expect(mockDynamoDb.deleteItem).toBeCalledTimes(1);
     expect(mockDynamoDb.putItem).toBeCalledTimes(2);
   });
 

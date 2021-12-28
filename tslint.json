@@ -27,14 +27,6 @@
       "as-needed"
     ],
     "cyclomatic-complexity": false,
-    // It looks like the 'ignore-case' option is broken, and this rule is always
-    // case-insensitive at the moment
-    "export-name": [
-      true,
-      {
-        "ignore-case": false
-      }
-    ],
     // default was forcing caplitalized static methods
     "function-name": [
       true,

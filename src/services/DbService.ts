@@ -10,6 +10,7 @@ import { inject, injectable } from 'inversify';
 import { ERROR_CODE } from 'src/constant/error';
 import { Base } from 'src/model/DbBase';
 import { data2Record, record2Data } from 'src/util/DbHelper';
+import { difference } from 'src/util/setTheory';
 
 /**
  * Service class for AWS dynamoDB
@@ -20,31 +21,24 @@ export class DbService {
   private readonly dynamoDb!: DynamoDB;
   private readonly tableName: string = `celestial-db-${process.env.ENVR}`;
 
-  private async checkIfItemExist(
-    key: Omit<Base, 'attribute'>,
-    wantExist: boolean
-  ): Promise<any> {
+  private async checkIfItemExist(pk: string): Promise<any> {
     const params: QueryInput = {
       TableName: this.tableName,
       Select: 'COUNT',
       ExpressionAttributeValues: {
-        ':pk': { S: key.pk },
-        ':sk': { S: key.sk },
+        ':pk': { S: pk },
       },
-      KeyConditionExpression: 'pk = :pk AND sk = :sk',
+      KeyConditionExpression: 'pk = :pk',
     };
     const res = await this.dynamoDb.query(params).promise();
 
-    if (wantExist && res.Count !== undefined && res.Count === 0)
-      throw new Error(ERROR_CODE.RECORD_NOT_FOUND);
-
-    if (!wantExist && res.Count !== undefined && res.Count > 0)
+    if (res.Count !== undefined && res.Count > 0)
       throw new Error(ERROR_CODE.RECORD_EXIST);
   }
 
   public async createItem<T>(alias: string, item: T): Promise<void> {
     const record = data2Record(item, alias);
-    await this.checkIfItemExist({ pk: record[0].pk, sk: record[0].sk }, false);
+    await this.checkIfItemExist(record[0].pk);
 
     await Promise.all(
       record.map(async (v: Base & { [key: string]: any }) => {
@@ -126,24 +120,50 @@ export class DbService {
   }
 
   public async putItem<T>(alias: string, item: T): Promise<void> {
-    const record = data2Record(item, alias);
-    await this.checkIfItemExist({ pk: record[0].pk, sk: record[0].sk }, true);
+    const newRecord = data2Record(item, alias);
+    const oldRecord = await this.getRawItem(newRecord[0].pk);
 
-    await Promise.all(
-      record.map(async (v: Base & { [key: string]: any }) => {
-        const params: PutItemInput = {
-          TableName: this.tableName,
-          Item: Converter.marshall(v),
-        };
+    const itemToDelete = difference(oldRecord, newRecord);
+    const itemToPut = difference(newRecord, oldRecord);
 
-        return this.dynamoDb.putItem(params).promise();
-      })
-    );
+    await Promise.all([
+      ...itemToPut.map(async (v: Base & { [key: string]: any }) => {
+        return this.dynamoDb
+          .putItem({
+            TableName: this.tableName,
+            Item: Converter.marshall(v),
+          })
+          .promise();
+      }),
+      ...itemToDelete.map(async (v: Base & { [key: string]: any }) => {
+        return this.dynamoDb
+          .deleteItem({
+            TableName: this.tableName,
+            Key: { pk: { S: v.pk }, sk: { S: v.sk } },
+          })
+          .promise();
+      }),
+    ]);
 
-    await this.updateListItem<T>(record[0].pk);
+    await this.updateListItem<T>(newRecord[0].pk);
   }
 
   private async updateListItem<T>(pk: string): Promise<void> {
+    const raw = await this.getRawItem(pk);
+    const res = record2Data<T>(raw);
+
+    const alias = pk.split('#')[0];
+    const schema = pk.split('#')[1];
+    const putItemParams: PutItemInput = {
+      TableName: this.tableName,
+      Item: Converter.marshall({ pk: `${alias}#${schema}`, sk: pk, ...res }),
+    };
+    await this.dynamoDb.putItem(putItemParams).promise();
+  }
+
+  private async getRawItem(
+    pk: string
+  ): Promise<(Base & { [key: string]: any })[]> {
     const params: QueryInput = {
       TableName: this.tableName,
       ExpressionAttributeValues: {
@@ -153,22 +173,11 @@ export class DbService {
     };
     const raw = await this.dynamoDb.query(params).promise();
     if (raw.Items === undefined || raw.Items.length === 0)
-      throw new Error(ERROR_CODE.UNEXPECTED_ERROR);
+      throw new Error(ERROR_CODE.RECORD_NOT_FOUND);
 
-    const res = record2Data<T>(
-      raw.Items.map(
-        (v: AttributeMap) =>
-          Converter.unmarshall(v) as Base & { [key: string]: any }
-      )
-    );
-
-    const alias = pk.split('#')[0];
-    const schema = pk.split('#')[1];
-    const putItemParams: PutItemInput = {
-      TableName: this.tableName,
-      Item: Converter.marshall({ pk: `${alias}#${schema}`, sk: pk, ...res }),
-    };
-    await this.dynamoDb.putItem(putItemParams).promise();
+    return raw.Items.map((v: AttributeMap) => {
+      return Converter.unmarshall(v) as Base & { [key: string]: any };
+    });
   }
 
   public async getItem<T>(
