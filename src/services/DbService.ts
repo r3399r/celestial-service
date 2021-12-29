@@ -57,71 +57,50 @@ export class DbService {
   public async deleteItem(
     alias: string,
     schema: string,
-    key: string
+    id: string
   ): Promise<void> {
-    const primaryKey = `${alias}#${schema}#${key}`;
+    const primaryKey = `${alias}#${schema}#${id}`;
 
     // prepare items with pk=primarKey or sk=primaryKey
     const [mainItem, relatedItem] = await Promise.all([
-      this.dynamoDb
-        .query({
-          TableName: this.tableName,
-          ExpressionAttributeValues: {
-            ':pk': { S: primaryKey },
-          },
-          KeyConditionExpression: 'pk = :pk',
-        })
-        .promise(),
-      this.dynamoDb
-        .query({
-          TableName: this.tableName,
-          IndexName: 'sk-pk-index',
-          ExpressionAttributeValues: {
-            ':sk': { S: primaryKey },
-          },
-          KeyConditionExpression: 'sk = :sk',
-          FilterExpression: 'pk <> :sk',
-        })
-        .promise(),
+      this.getRawItem(primaryKey),
+      this.getRawItemByIndex(primaryKey),
     ]);
 
-    if (
-      mainItem.Items === undefined ||
-      mainItem.Items.length === 0 ||
-      relatedItem.Items === undefined ||
-      relatedItem.Items.length === 0
-    )
-      throw new Error(ERROR_CODE.RECORD_NOT_FOUND);
+    if (relatedItem.length > 2)
+      throw new Error(
+        'this item is related to others, please delete related items first'
+      );
 
     await Promise.all([
-      ...mainItem.Items.map(async (v: AttributeMap) => {
+      ...mainItem.map(async (v: Base & { [key: string]: any }) => {
         return this.dynamoDb
           .deleteItem({
             TableName: this.tableName,
-            Key: { pk: v.pk, sk: v.sk },
+            Key: { pk: { S: v.pk }, sk: { S: v.sk } },
           })
           .promise();
       }),
-      ...relatedItem.Items.map(async (v: AttributeMap) => {
-        return this.dynamoDb
-          .deleteItem({
-            TableName: this.tableName,
-            Key: { pk: v.pk, sk: v.sk },
-          })
-          .promise();
-      }),
+      ...relatedItem
+        .filter((v: Base & { [key: string]: any }) => v.pk !== v.sk)
+        .map(async (v: Base & { [key: string]: any }) => {
+          return this.dynamoDb
+            .deleteItem({
+              TableName: this.tableName,
+              Key: { pk: { S: v.pk }, sk: { S: v.sk } },
+            })
+            .promise();
+        }),
     ]);
-
-    await Promise.all(
-      relatedItem.Items.map(async (v: AttributeMap) => {
-        return this.updateListItem(v.pk.S as string);
-      })
-    );
   }
 
   public async putItem<T>(alias: string, item: T): Promise<void> {
     const newRecord = data2Record(item, alias);
-    const oldRecord = await this.getRawItem(newRecord[0].pk);
+    const [oldRecord, relatedItem] = await Promise.all([
+      this.getRawItem(newRecord[0].pk),
+      this.getRawItemByIndex(newRecord[0].pk),
+    ]);
+    const schema = newRecord[0].pk.split('#')[1];
 
     const itemToDelete = differenceBy(oldRecord, newRecord, 'sk');
     const itemToPut = intersectionByAndDifference(newRecord, oldRecord, 'sk');
@@ -146,9 +125,36 @@ export class DbService {
           })
           .promise();
       }),
+      ...relatedItem
+        .filter(
+          (v: Base & { [key: string]: any }) =>
+            v.pk !== v.sk && v.pk !== `${alias}#${schema}`
+        )
+        .map(async (v: Base & { [key: string]: any }) => {
+          return this.dynamoDb
+            .putItem({
+              TableName: this.tableName,
+              Item: Converter.marshall({
+                ...newRecord[0],
+                pk: v.pk,
+                attribute: v.attribute,
+              }),
+            })
+            .promise();
+        }),
     ]);
 
-    await this.updateListItem<T>(newRecord[0].pk);
+    await Promise.all([
+      this.updateListItem<T>(newRecord[0].pk),
+      ...relatedItem
+        .filter(
+          (v: Base & { [key: string]: any }) =>
+            v.pk !== v.sk && v.pk !== `${alias}#${schema}`
+        )
+        .map(async (v: Base & { [key: string]: any }) => {
+          return this.updateListItem(v.pk);
+        }),
+    ]);
   }
 
   private async updateListItem<T>(pk: string): Promise<void> {
@@ -173,6 +179,26 @@ export class DbService {
         ':pk': { S: pk },
       },
       KeyConditionExpression: 'pk = :pk',
+    };
+    const raw = await this.dynamoDb.query(params).promise();
+    if (raw.Items === undefined || raw.Items.length === 0)
+      throw new Error(ERROR_CODE.RECORD_NOT_FOUND);
+
+    return raw.Items.map((v: AttributeMap) => {
+      return Converter.unmarshall(v) as Base & { [key: string]: any };
+    });
+  }
+
+  private async getRawItemByIndex(
+    sk: string
+  ): Promise<(Base & { [key: string]: any })[]> {
+    const params: QueryInput = {
+      TableName: this.tableName,
+      IndexName: 'sk-pk-index',
+      ExpressionAttributeValues: {
+        ':sk': { S: sk },
+      },
+      KeyConditionExpression: 'sk = :sk',
     };
     const raw = await this.dynamoDb.query(params).promise();
     if (raw.Items === undefined || raw.Items.length === 0)
