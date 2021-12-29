@@ -10,7 +10,7 @@ import { inject, injectable } from 'inversify';
 import { ERROR_CODE } from 'src/constant/error';
 import { Base } from 'src/model/DbBase';
 import { data2Record, record2Data } from 'src/util/DbHelper';
-import { difference } from 'src/util/setTheory';
+import { differenceBy, intersectionByAndDifference } from 'src/util/setTheory';
 
 /**
  * Service class for AWS dynamoDB
@@ -123,18 +123,21 @@ export class DbService {
     const newRecord = data2Record(item, alias);
     const oldRecord = await this.getRawItem(newRecord[0].pk);
 
-    const itemToDelete = difference(oldRecord, newRecord);
-    const itemToPut = difference(newRecord, oldRecord);
+    const itemToDelete = differenceBy(oldRecord, newRecord, 'sk');
+    const itemToPut = intersectionByAndDifference(newRecord, oldRecord, 'sk');
+    const itemToAdd = differenceBy(newRecord, oldRecord, 'sk');
 
     await Promise.all([
-      ...itemToPut.map(async (v: Base & { [key: string]: any }) => {
-        return this.dynamoDb
-          .putItem({
-            TableName: this.tableName,
-            Item: Converter.marshall(v),
-          })
-          .promise();
-      }),
+      ...[...itemToPut, ...itemToAdd].map(
+        async (v: Base & { [key: string]: any }) => {
+          return this.dynamoDb
+            .putItem({
+              TableName: this.tableName,
+              Item: Converter.marshall(v),
+            })
+            .promise();
+        }
+      ),
       ...itemToDelete.map(async (v: Base & { [key: string]: any }) => {
         return this.dynamoDb
           .deleteItem({
