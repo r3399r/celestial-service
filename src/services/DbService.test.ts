@@ -157,7 +157,7 @@ describe('DbService', () => {
 
     await expect(() =>
       dbService.getItems('test-alias', 'test-schemma')
-    ).rejects.toThrowError(ERROR_CODE.RECORD_NOT_FOUND);
+    ).rejects.toThrowError(ERROR_CODE.UNEXPECTED_ERROR);
   });
 
   it('deleteItem should work', async () => {
@@ -181,5 +181,50 @@ describe('DbService', () => {
     await expect(() =>
       dbService.deleteItem('test-alias', 'test-schema', 'test-key')
     ).rejects.toThrowError(ERROR_CODE.RECORD_NOT_FOUND);
+  });
+
+  it('getItemsByIndex should work', async () => {
+    mockDynamoDb.query = jest.fn().mockReturnValue(
+      awsMock({
+        Items: [
+          Converter.marshall({ pk: 'alias#test#000', sk: 'sk', a: 1, b: 2 }),
+          Converter.marshall({ pk: 'alias#test#001', sk: 'sk', a: 3, b: 4 }),
+          Converter.marshall({ pk: 'alias#other#002', sk: 'sk', a: 5, b: 6 }),
+        ],
+      })
+    );
+    mockDynamoDb.getItem = jest.fn().mockReturnValue(
+      awsMock({
+        Item: Converter.marshall({ pk: 'pk', sk: 'sk', a: 1, b: 2 }),
+      })
+    );
+
+    expect(
+      await dbService.getItemsByIndex(
+        'alias',
+        'test',
+        'index-schema',
+        'index-id'
+      )
+    ).toStrictEqual([
+      { a: 1, b: 2 },
+      { a: 1, b: 2 },
+    ]);
+    expect(mockDynamoDb.query).toBeCalledTimes(1);
+    expect(mockDynamoDb.getItem).toBeCalledTimes(2);
+    expect(mockDynamoDb.getItem).toBeCalledWith({
+      TableName: 'celestial-db-undefined',
+      Key: {
+        pk: { S: `alias#test` },
+        sk: { S: `alias#test#000` },
+      },
+    });
+    expect(mockDynamoDb.getItem).toBeCalledWith({
+      TableName: 'celestial-db-undefined',
+      Key: {
+        pk: { S: `alias#test` },
+        sk: { S: `alias#test#001` },
+      },
+    });
   });
 });

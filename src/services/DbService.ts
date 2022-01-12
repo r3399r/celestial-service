@@ -240,8 +240,7 @@ export class DbService {
       KeyConditionExpression: 'pk = :pk',
     };
     const raw = await this.dynamoDb.query(params).promise();
-    if (raw.Items === undefined || raw.Items.length === 0)
-      throw new Error(ERROR_CODE.RECORD_NOT_FOUND);
+    if (raw.Items === undefined) throw new Error(ERROR_CODE.UNEXPECTED_ERROR);
 
     return raw.Items.map((v: AttributeMap) => {
       const { pk, sk, attribute, ...rest } = Converter.unmarshall(v) as Base & {
@@ -250,5 +249,25 @@ export class DbService {
 
       return rest as T;
     });
+  }
+
+  public async getItemsByIndex<T>(
+    alias: string,
+    schema: string,
+    indexSchema: string,
+    indexId: string
+  ): Promise<T[]> {
+    const items = await this.getRawItemByIndex(
+      `${alias}#${indexSchema}#${indexId}`
+    );
+    const promiseGetItems = items
+      .filter((v: Base & { [key: string]: any }) =>
+        v.pk.startsWith(`${alias}#${schema}`)
+      )
+      .map((v: Base & { [key: string]: any }) =>
+        this.getItem<T>(alias, schema, v.pk.split('#')[2])
+      );
+
+    return await Promise.all(promiseGetItems);
   }
 }
