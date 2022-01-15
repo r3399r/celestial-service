@@ -2,14 +2,41 @@ import { DynamoDB } from 'aws-sdk';
 import { Converter } from 'aws-sdk/clients/dynamodb';
 import { bindings } from 'src/bindings';
 import { ERROR_CODE } from 'src/constant/error';
-import { entity, primaryAttribute } from 'src/util/DbHelper';
+import { Base } from 'src/model/DbBase';
+import {
+  data2Record,
+  entity,
+  primaryAttribute,
+  relatedAttributeMany,
+} from 'src/util/DbHelper';
 import { awsMock } from 'test/awsMock';
 import { DbService } from './DbService';
 
 type TestUser = {
   id: string;
   name: string;
+  pet: TestPet[];
 };
+
+type TestPet = {
+  id: string;
+  isDog: boolean;
+};
+
+/**
+ * test entity pet for unit test
+ */
+@entity('pet')
+class TestPetEntity implements TestPet {
+  @primaryAttribute()
+  public id: string;
+  public isDog: boolean;
+
+  constructor(input: TestPet) {
+    this.id = input.id;
+    this.isDog = input.isDog;
+  }
+}
 
 /**
  * test entity user for unit test
@@ -19,10 +46,13 @@ class TestUserEntity implements TestUser {
   @primaryAttribute()
   public id: string;
   public name: string;
+  @relatedAttributeMany()
+  public pet: TestPet[];
 
   constructor(input: TestUser) {
     this.id = input.id;
     this.name = input.name;
+    this.pet = input.pet.map((v: TestPet) => new TestPetEntity(v));
   }
 }
 
@@ -32,6 +62,24 @@ class TestUserEntity implements TestUser {
 describe('DbService', () => {
   let dbService: DbService;
   let mockDynamoDb: any;
+  let dummyUser: TestUser;
+
+  beforeAll(() => {
+    dummyUser = {
+      id: '000',
+      name: 'user-name',
+      pet: [
+        {
+          id: '001',
+          isDog: true,
+        },
+        {
+          id: '002',
+          isDog: false,
+        },
+      ],
+    };
+  });
 
   beforeEach(() => {
     mockDynamoDb = {};
@@ -44,10 +92,7 @@ describe('DbService', () => {
   });
 
   it('createItem should work', async () => {
-    const newUser = new TestUserEntity({
-      id: 'test-id',
-      name: 'test-name',
-    });
+    const newUser = new TestUserEntity(dummyUser);
 
     mockDynamoDb.query = jest
       .fn()
@@ -55,14 +100,11 @@ describe('DbService', () => {
       .mockReturnValue(awsMock({ Items: [Converter.marshall(newUser)] }));
 
     await dbService.createItem('alias', newUser);
-    expect(mockDynamoDb.putItem).toBeCalledTimes(2);
+    expect(mockDynamoDb.putItem).toBeCalledTimes(4);
   });
 
   it('createItem should fail if insert fail', async () => {
-    const newUser = new TestUserEntity({
-      id: 'test-id',
-      name: 'test-name',
-    });
+    const newUser = new TestUserEntity(dummyUser);
 
     mockDynamoDb.query = jest
       .fn()
@@ -75,10 +117,7 @@ describe('DbService', () => {
   });
 
   it('createItem should fail if item exists', async () => {
-    const newUser = new TestUserEntity({
-      id: 'test-id',
-      name: 'test-name',
-    });
+    const newUser = new TestUserEntity(dummyUser);
 
     mockDynamoDb.query = jest.fn().mockReturnValue(awsMock({ Count: 1 }));
 
@@ -88,30 +127,57 @@ describe('DbService', () => {
   });
 
   it('putItem should work', async () => {
-    const oldUser = new TestUserEntity({
-      id: 'test-id',
-      name: 'new-name',
-    });
+    const oldUser = data2Record(new TestUserEntity(dummyUser), 'a');
     const newUser = new TestUserEntity({
-      id: 'test-id',
-      name: 'test-name',
+      id: dummyUser.id,
+      name: 'user-name-new',
+      pet: [
+        {
+          id: '001',
+          isDog: true,
+        },
+        {
+          id: '003',
+          isDog: false,
+        },
+      ],
     });
+
+    const mainItem = {
+      pk: 'a#user#000',
+      sk: 'a#user#000',
+      id: '000',
+      name: 'user-name',
+    };
+    const relatedItem = { pk: 'a#user', sk: 'a#user#000', id: '000' };
+    const relatedItemLink = { pk: 'a#group', sk: 'a#user#000', id: '010' };
 
     mockDynamoDb.query = jest
       .fn()
-      .mockReturnValueOnce(awsMock({ Items: [Converter.marshall(oldUser)] }))
-      .mockReturnValue(awsMock({ Items: [Converter.marshall(newUser)] }));
+      .mockReturnValueOnce(
+        awsMock({
+          Items: oldUser.map((v: Base & { [key: string]: any }) =>
+            Converter.marshall(v)
+          ),
+        })
+      )
+      .mockReturnValue(
+        awsMock({
+          Items: [
+            Converter.marshall(mainItem),
+            Converter.marshall(relatedItem),
+            Converter.marshall(relatedItemLink),
+          ],
+        })
+      );
 
-    await dbService.putItem('alias', newUser);
+    await dbService.putItem('a', newUser);
     expect(mockDynamoDb.deleteItem).toBeCalledTimes(1);
-    expect(mockDynamoDb.putItem).toBeCalledTimes(2);
+    expect(mockDynamoDb.putItem).toBeCalledTimes(5);
   });
 
   it('putItem should work if item does not exist', async () => {
-    const updatedUser = new TestUserEntity({
-      id: 'test-id',
-      name: 'test-name',
-    });
+    const updatedUser = new TestUserEntity(dummyUser);
 
     mockDynamoDb.query = jest.fn().mockReturnValue(awsMock({ Count: 0 }));
 
@@ -161,18 +227,46 @@ describe('DbService', () => {
   });
 
   it('deleteItem should work', async () => {
-    const mainItem = { pk: 'pk1', sk: 'pk1', a: 1 };
-    const relatedItem = { pk: 'pk2', sk: 'pk1', b: 2 };
+    const mainItem = { pk: 'a#user#000', sk: 'a#user#000', a: 1 };
+    const relatedItem = { pk: 'a#user', sk: 'a#user#000', a: 1 };
     mockDynamoDb.query = jest
       .fn()
       .mockReturnValueOnce(awsMock({ Items: [Converter.marshall(mainItem)] }))
       .mockReturnValueOnce(
-        awsMock({ Items: [Converter.marshall(relatedItem)] })
-      )
-      .mockReturnValue(awsMock({ Items: [Converter.marshall(relatedItem)] }));
+        awsMock({
+          Items: [
+            Converter.marshall(mainItem),
+            Converter.marshall(relatedItem),
+          ],
+        })
+      );
 
     await dbService.deleteItem('test-alias', 'test-schema', 'test-key');
     expect(mockDynamoDb.deleteItem).toBeCalledTimes(2);
+  });
+
+  it('deleteItem should fail if it is linked', async () => {
+    const mainItem = { pk: 'a#user#000', sk: 'a#user#000', a: 1 };
+    const relatedItem = { pk: 'a#user', sk: 'a#user#000', a: 1 };
+    const relatedItemLinked = { pk: 'a#group#001', sk: 'a#user#000', b: 2 };
+    mockDynamoDb.query = jest
+      .fn()
+      .mockReturnValueOnce(awsMock({ Items: [Converter.marshall(mainItem)] }))
+      .mockReturnValueOnce(
+        awsMock({
+          Items: [
+            Converter.marshall(mainItem),
+            Converter.marshall(relatedItem),
+            Converter.marshall(relatedItemLinked),
+          ],
+        })
+      );
+
+    await expect(() =>
+      dbService.deleteItem('test-alias', 'test-schema', 'test-key')
+    ).rejects.toThrowError(
+      'this item is linked by other schema, please delete linked items first'
+    );
   });
 
   it('deleteItem should fail if no data', async () => {

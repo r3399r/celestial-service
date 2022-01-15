@@ -69,7 +69,7 @@ export class DbService {
 
     if (relatedItem.length > 2)
       throw new Error(
-        'this item is related to others, please delete related items first'
+        'this item is linked by other schema, please delete linked items first'
       );
 
     await Promise.all([

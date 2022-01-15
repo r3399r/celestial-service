@@ -1,3 +1,4 @@
+import { Base } from 'src/model/DbBase';
 import {
   data2Record,
   entity,
@@ -16,8 +17,8 @@ type Class = {
   id: string;
   name: string;
   leader: User;
-  viceLeader: User;
-  member: User[];
+  viceLeader?: User;
+  member?: User[];
   teacher: User[];
   time: string;
 };
@@ -48,9 +49,9 @@ class ClassEntity implements Class {
   @relatedAttributeOne()
   public leader: User;
   @relatedAttributeOne()
-  public viceLeader: User;
+  public viceLeader?: User;
   @relatedAttributeMany()
-  public member: User[];
+  public member?: User[];
   @relatedAttributeMany()
   public teacher: User[];
   public time: string;
@@ -58,10 +59,16 @@ class ClassEntity implements Class {
   constructor(input: Class) {
     this.id = input.id;
     this.name = input.name;
-    this.leader = input.leader;
-    this.viceLeader = input.viceLeader;
-    this.member = input.member;
-    this.teacher = input.teacher;
+    this.leader = new UserEntity(input.leader);
+    this.viceLeader =
+      input.viceLeader !== undefined
+        ? new UserEntity(input.viceLeader)
+        : undefined;
+    this.member =
+      input.member !== undefined
+        ? input.member.map((v: User) => new UserEntity(v))
+        : undefined;
+    this.teacher = input.teacher.map((v: User) => new UserEntity(v));
     this.time = input.time;
   }
 }
@@ -78,7 +85,7 @@ class WrongClassEntity {
 
   constructor(input: any) {
     this.id = input.id;
-    this.member = input.member;
+    this.member = new UserEntity(input.member);
   }
 }
 
@@ -86,15 +93,17 @@ class WrongClassEntity {
  * Tests of db helper
  */
 describe('DbHelper', () => {
-  let dummyClassData: any;
-  let dummyClassObj: any;
-  let dummyClassRecord: any;
-  let dummyLeader: any;
-  let dummyViceLeader: any;
-  let dummyClassmateA: any;
-  let dummyClassmateB: any;
-  let dummyTeacherA: any;
-  let dummyTeacherB: any;
+  let dummyClassObj: Class;
+  let dummyClassData: Class;
+  let dummyClassObjWithUndefined: Class;
+  let dummyClassDataWithUndefined: Class;
+  let dummyClassRecord: (Base & { [key: string]: any })[];
+  let dummyLeader: User;
+  let dummyViceLeader: User;
+  let dummyClassmateA: User;
+  let dummyClassmateB: User;
+  let dummyTeacherA: User;
+  let dummyTeacherB: User;
   const alias: string = 'test-alias';
 
   beforeAll(() => {
@@ -104,18 +113,6 @@ describe('DbHelper', () => {
     dummyClassmateB = { id: '127', name: 'Lin' };
     dummyTeacherA = { id: '128', name: 'Lai' };
     dummyTeacherB = { id: '129', name: 'Liu' };
-    dummyClassData = new ClassEntity({
-      id: 'abc',
-      name: 'test-name',
-      leader: new UserEntity(dummyLeader),
-      viceLeader: new UserEntity(dummyViceLeader),
-      member: [
-        new UserEntity(dummyClassmateA),
-        new UserEntity(dummyClassmateB),
-      ],
-      teacher: [new UserEntity(dummyTeacherA), new UserEntity(dummyTeacherB)],
-      time: 'test-time',
-    });
     dummyClassObj = {
       id: 'abc',
       name: 'test-name',
@@ -125,6 +122,15 @@ describe('DbHelper', () => {
       teacher: [dummyTeacherA, dummyTeacherB],
       time: 'test-time',
     };
+    dummyClassData = new ClassEntity(dummyClassObj);
+    dummyClassObjWithUndefined = {
+      id: 'abc',
+      name: 'test-name',
+      leader: dummyLeader,
+      teacher: [dummyTeacherA, dummyTeacherB],
+      time: 'test-time',
+    };
+    dummyClassDataWithUndefined = new ClassEntity(dummyClassObjWithUndefined);
     dummyClassRecord = [
       {
         pk: `${alias}#class#abc`,
@@ -189,6 +195,15 @@ describe('DbHelper', () => {
       },
     ]);
     expect(data2Record(dummyClassData, alias)).toStrictEqual(dummyClassRecord);
+  });
+
+  it('data2Record should work if some attribute is empty', () => {
+    expect(data2Record(dummyClassDataWithUndefined, alias)).toStrictEqual(
+      dummyClassRecord.filter(
+        (v: Base & { [key: string]: any }) =>
+          v.attribute !== 'viceLeader#one' && v.attribute !== 'member#many'
+      )
+    );
   });
 
   it('data2Record should fail', () => {
