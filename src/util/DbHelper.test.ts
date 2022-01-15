@@ -97,7 +97,10 @@ describe('DbHelper', () => {
   let dummyClassData: Class;
   let dummyClassObjWithUndefined: Class;
   let dummyClassDataWithUndefined: Class;
+  let dummyClassObjDuplicatedUser: Class;
+  let dummyClassDataDuplicatedUser: Class;
   let dummyClassRecord: (Base & { [key: string]: any })[];
+  let dummyClassRecordDuplicatedUser: (Base & { [key: string]: any })[];
   let dummyLeader: User;
   let dummyViceLeader: User;
   let dummyClassmateA: User;
@@ -131,6 +134,16 @@ describe('DbHelper', () => {
       time: 'test-time',
     };
     dummyClassDataWithUndefined = new ClassEntity(dummyClassObjWithUndefined);
+    dummyClassObjDuplicatedUser = {
+      id: 'abcd',
+      name: 'test-name-2',
+      leader: dummyLeader,
+      viceLeader: dummyLeader,
+      member: [dummyLeader, dummyClassmateA, dummyClassmateB],
+      teacher: [dummyTeacherA, dummyTeacherB],
+      time: 'test-time',
+    };
+    dummyClassDataDuplicatedUser = new ClassEntity(dummyClassObjDuplicatedUser);
     dummyClassRecord = [
       {
         pk: `${alias}#class#abc`,
@@ -183,6 +196,51 @@ describe('DbHelper', () => {
         name: 'Liu',
       },
     ];
+    dummyClassRecordDuplicatedUser = [
+      {
+        pk: `${alias}#class#abcd`,
+        sk: `${alias}#class#abcd`,
+        attribute: undefined,
+        id: 'abcd',
+        name: 'test-name-2',
+        time: 'test-time',
+      },
+      {
+        pk: `${alias}#class#abcd`,
+        sk: `${alias}#user#124`,
+        attribute: 'leader#one::viceLeader#one::member#many',
+        id: '124',
+        name: 'Wang',
+      },
+      {
+        pk: `${alias}#class#abcd`,
+        sk: `${alias}#user#126`,
+        attribute: 'member#many',
+        id: '126',
+        name: 'Chang',
+      },
+      {
+        pk: `${alias}#class#abcd`,
+        sk: `${alias}#user#127`,
+        attribute: 'member#many',
+        id: '127',
+        name: 'Lin',
+      },
+      {
+        pk: `${alias}#class#abcd`,
+        sk: `${alias}#user#128`,
+        attribute: 'teacher#many',
+        id: '128',
+        name: 'Lai',
+      },
+      {
+        pk: `${alias}#class#abcd`,
+        sk: `${alias}#user#129`,
+        attribute: 'teacher#many',
+        id: '129',
+        name: 'Liu',
+      },
+    ];
   });
 
   it('data2Record should work', () => {
@@ -206,6 +264,12 @@ describe('DbHelper', () => {
     );
   });
 
+  it('data2Record should work if user is put multiple times', () => {
+    expect(data2Record(dummyClassDataDuplicatedUser, alias)).toStrictEqual(
+      dummyClassRecordDuplicatedUser
+    );
+  });
+
   it('data2Record should fail', () => {
     expect(() =>
       data2Record(new WrongClassEntity({ id: 'a', member: 'b' }), alias)
@@ -214,5 +278,19 @@ describe('DbHelper', () => {
 
   it('record2Data should work', () => {
     expect(record2Data(dummyClassRecord)).toStrictEqual(dummyClassObj);
+    expect(
+      record2Data(
+        dummyClassRecord.filter(
+          (v: Base & { [key: string]: any }) =>
+            v.attribute !== 'viceLeader#one' && v.attribute !== 'member#many'
+        )
+      )
+    ).toStrictEqual(dummyClassObjWithUndefined);
+  });
+
+  it('record2Data should work if user is put multiple times', () => {
+    expect(record2Data(dummyClassRecordDuplicatedUser)).toStrictEqual(
+      dummyClassObjDuplicatedUser
+    );
   });
 });
