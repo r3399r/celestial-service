@@ -65,6 +65,7 @@ describe('DbService', () => {
   let dummyUser: TestUser;
 
   beforeAll(() => {
+    process.env.ALIAS = 'a';
     dummyUser = {
       id: '000',
       name: 'user-name',
@@ -99,7 +100,7 @@ describe('DbService', () => {
       .mockReturnValueOnce(awsMock({ Count: 0 }))
       .mockReturnValue(awsMock({ Items: [Converter.marshall(newUser)] }));
 
-    await dbService.createItem('alias', newUser);
+    await dbService.createItem(newUser);
     expect(mockDynamoDb.putItem).toBeCalledTimes(4);
   });
 
@@ -111,9 +112,9 @@ describe('DbService', () => {
       .mockReturnValueOnce(awsMock({ Count: 0 }))
       .mockReturnValue(awsMock({ Count: 1 }));
 
-    await expect(() =>
-      dbService.createItem('alias', newUser)
-    ).rejects.toThrowError(ERROR_CODE.RECORD_NOT_FOUND);
+    await expect(() => dbService.createItem(newUser)).rejects.toThrowError(
+      ERROR_CODE.RECORD_NOT_FOUND
+    );
   });
 
   it('createItem should fail if item exists', async () => {
@@ -121,9 +122,9 @@ describe('DbService', () => {
 
     mockDynamoDb.query = jest.fn().mockReturnValue(awsMock({ Count: 1 }));
 
-    await expect(() =>
-      dbService.createItem('alias', newUser)
-    ).rejects.toThrowError(ERROR_CODE.RECORD_EXIST);
+    await expect(() => dbService.createItem(newUser)).rejects.toThrowError(
+      ERROR_CODE.RECORD_EXIST
+    );
   });
 
   it('putItem should work', async () => {
@@ -171,7 +172,7 @@ describe('DbService', () => {
         })
       );
 
-    await dbService.putItem('a', newUser);
+    await dbService.putItem(newUser);
     expect(mockDynamoDb.deleteItem).toBeCalledTimes(1);
     expect(mockDynamoDb.putItem).toBeCalledTimes(5);
   });
@@ -181,9 +182,9 @@ describe('DbService', () => {
 
     mockDynamoDb.query = jest.fn().mockReturnValue(awsMock({ Count: 0 }));
 
-    await expect(() =>
-      dbService.putItem('alias', updatedUser)
-    ).rejects.toThrowError(ERROR_CODE.RECORD_NOT_FOUND);
+    await expect(() => dbService.putItem(updatedUser)).rejects.toThrowError(
+      ERROR_CODE.RECORD_NOT_FOUND
+    );
   });
 
   it('getItem should work', async () => {
@@ -193,16 +194,17 @@ describe('DbService', () => {
       })
     );
 
-    expect(
-      await dbService.getItem('test-alias', 'test-schemma', 'test-id')
-    ).toStrictEqual({ a: 1, b: 2 });
+    expect(await dbService.getItem('test-schemma', 'test-id')).toStrictEqual({
+      a: 1,
+      b: 2,
+    });
   });
 
   it('getItem should fail if not found', async () => {
     mockDynamoDb.getItem = jest.fn().mockReturnValue(awsMock({}));
 
     await expect(() =>
-      dbService.getItem('test-alias', 'test-schemma', 'test-id')
+      dbService.getItem('test-schemma', 'test-id')
     ).rejects.toThrowError(ERROR_CODE.RECORD_NOT_FOUND);
   });
 
@@ -213,17 +215,17 @@ describe('DbService', () => {
       })
     );
 
-    expect(
-      await dbService.getItems('test-alias', 'test-schemma')
-    ).toStrictEqual([{ a: 1, b: 2 }]);
+    expect(await dbService.getItems('test-schemma')).toStrictEqual([
+      { a: 1, b: 2 },
+    ]);
   });
 
   it('getItems should fail if not found', async () => {
     mockDynamoDb.query = jest.fn().mockReturnValue(awsMock([]));
 
-    await expect(() =>
-      dbService.getItems('test-alias', 'test-schemma')
-    ).rejects.toThrowError(ERROR_CODE.UNEXPECTED_ERROR);
+    await expect(() => dbService.getItems('test-schemma')).rejects.toThrowError(
+      ERROR_CODE.UNEXPECTED_ERROR
+    );
   });
 
   it('deleteItem should work', async () => {
@@ -241,7 +243,7 @@ describe('DbService', () => {
         })
       );
 
-    await dbService.deleteItem('test-alias', 'test-schema', 'test-key');
+    await dbService.deleteItem('test-schema', 'test-key');
     expect(mockDynamoDb.deleteItem).toBeCalledTimes(2);
   });
 
@@ -263,7 +265,7 @@ describe('DbService', () => {
       );
 
     await expect(() =>
-      dbService.deleteItem('test-alias', 'test-schema', 'test-key')
+      dbService.deleteItem('test-schema', 'test-key')
     ).rejects.toThrowError(
       'this item is linked by other schema, please delete linked items first'
     );
@@ -273,7 +275,7 @@ describe('DbService', () => {
     mockDynamoDb.query = jest.fn().mockReturnValue(awsMock({ Items: [] }));
 
     await expect(() =>
-      dbService.deleteItem('test-alias', 'test-schema', 'test-key')
+      dbService.deleteItem('test-schema', 'test-key')
     ).rejects.toThrowError(ERROR_CODE.RECORD_NOT_FOUND);
   });
 
@@ -281,9 +283,9 @@ describe('DbService', () => {
     mockDynamoDb.query = jest.fn().mockReturnValue(
       awsMock({
         Items: [
-          Converter.marshall({ pk: 'alias#test#000', sk: 'sk', a: 1, b: 2 }),
-          Converter.marshall({ pk: 'alias#test#001', sk: 'sk', a: 3, b: 4 }),
-          Converter.marshall({ pk: 'alias#other#002', sk: 'sk', a: 5, b: 6 }),
+          Converter.marshall({ pk: 'a#test#000', sk: 'sk', a: 1, b: 2 }),
+          Converter.marshall({ pk: 'a#test#001', sk: 'sk', a: 3, b: 4 }),
+          Converter.marshall({ pk: 'a#other#002', sk: 'sk', a: 5, b: 6 }),
         ],
       })
     );
@@ -294,12 +296,7 @@ describe('DbService', () => {
     );
 
     expect(
-      await dbService.getItemsByIndex(
-        'alias',
-        'test',
-        'index-schema',
-        'index-id'
-      )
+      await dbService.getItemsByIndex('test', 'index-schema', 'index-id')
     ).toStrictEqual([
       { a: 1, b: 2 },
       { a: 1, b: 2 },
@@ -309,15 +306,15 @@ describe('DbService', () => {
     expect(mockDynamoDb.getItem).toBeCalledWith({
       TableName: 'celestial-db-undefined',
       Key: {
-        pk: { S: `alias#test` },
-        sk: { S: `alias#test#000` },
+        pk: { S: `a#test` },
+        sk: { S: `a#test#000` },
       },
     });
     expect(mockDynamoDb.getItem).toBeCalledWith({
       TableName: 'celestial-db-undefined',
       Key: {
-        pk: { S: `alias#test` },
-        sk: { S: `alias#test#001` },
+        pk: { S: `a#test` },
+        sk: { S: `a#test#001` },
       },
     });
   });

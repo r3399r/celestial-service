@@ -20,6 +20,7 @@ export class DbService {
   @inject(DynamoDB)
   private readonly dynamoDb!: DynamoDB;
   private readonly tableName: string = `celestial-db-${process.env.ENVR}`;
+  private readonly alias: string = process.env.ALIAS ?? 'undefined';
 
   private async checkIfItemExist(pk: string): Promise<any> {
     const params: QueryInput = {
@@ -36,8 +37,8 @@ export class DbService {
       throw new Error(ERROR_CODE.RECORD_EXIST);
   }
 
-  public async createItem<T>(alias: string, item: T): Promise<void> {
-    const record = data2Record(item, alias);
+  public async createItem<T>(item: T): Promise<void> {
+    const record = data2Record(item, this.alias);
     await this.checkIfItemExist(record[0].pk);
 
     await Promise.all(
@@ -54,12 +55,8 @@ export class DbService {
     await this.updateListItem(record[0].pk);
   }
 
-  public async deleteItem(
-    alias: string,
-    schema: string,
-    id: string
-  ): Promise<void> {
-    const primaryKey = `${alias}#${schema}#${id}`;
+  public async deleteItem(schema: string, id: string): Promise<void> {
+    const primaryKey = `${this.alias}#${schema}#${id}`;
 
     // prepare items with pk=primarKey or sk=primaryKey
     const [mainItem, relatedItem] = await Promise.all([
@@ -94,8 +91,8 @@ export class DbService {
     ]);
   }
 
-  public async putItem<T>(alias: string, item: T): Promise<void> {
-    const newRecord = data2Record(item, alias);
+  public async putItem<T>(item: T): Promise<void> {
+    const newRecord = data2Record(item, this.alias);
     const [oldRecord, relatedItem] = await Promise.all([
       this.getRawItem(newRecord[0].pk),
       this.getRawItemByIndex(newRecord[0].pk),
@@ -128,7 +125,7 @@ export class DbService {
       ...relatedItem
         .filter(
           (v: Base & { [key: string]: any }) =>
-            v.pk !== v.sk && v.pk !== `${alias}#${schema}`
+            v.pk !== v.sk && v.pk !== `${this.alias}#${schema}`
         )
         .map(async (v: Base & { [key: string]: any }) => {
           return this.dynamoDb
@@ -149,7 +146,7 @@ export class DbService {
       ...relatedItem
         .filter(
           (v: Base & { [key: string]: any }) =>
-            v.pk !== v.sk && v.pk !== `${alias}#${schema}`
+            v.pk !== v.sk && v.pk !== `${this.alias}#${schema}`
         )
         .map(async (v: Base & { [key: string]: any }) => {
           return this.updateListItem(v.pk);
@@ -209,16 +206,12 @@ export class DbService {
     });
   }
 
-  public async getItem<T>(
-    alias: string,
-    schema: string,
-    id: string
-  ): Promise<T> {
+  public async getItem<T>(schema: string, id: string): Promise<T> {
     const params: GetItemInput = {
       TableName: this.tableName,
       Key: {
-        pk: { S: `${alias}#${schema}` },
-        sk: { S: `${alias}#${schema}#${id}` },
+        pk: { S: `${this.alias}#${schema}` },
+        sk: { S: `${this.alias}#${schema}#${id}` },
       },
     };
     const raw = await this.dynamoDb.getItem(params).promise();
@@ -231,11 +224,11 @@ export class DbService {
     return rest as T;
   }
 
-  public async getItems<T>(alias: string, schema: string): Promise<T[]> {
+  public async getItems<T>(schema: string): Promise<T[]> {
     const params: QueryInput = {
       TableName: this.tableName,
       ExpressionAttributeValues: {
-        ':pk': { S: `${alias}#${schema}` },
+        ':pk': { S: `${this.alias}#${schema}` },
       },
       KeyConditionExpression: 'pk = :pk',
     };
@@ -252,20 +245,19 @@ export class DbService {
   }
 
   public async getItemsByIndex<T>(
-    alias: string,
     schema: string,
     indexSchema: string,
     indexId: string
   ): Promise<T[]> {
     const items = await this.getRawItemByIndex(
-      `${alias}#${indexSchema}#${indexId}`
+      `${this.alias}#${indexSchema}#${indexId}`
     );
     const promiseGetItems = items
       .filter((v: Base & { [key: string]: any }) =>
-        v.pk.startsWith(`${alias}#${schema}`)
+        v.pk.startsWith(`${this.alias}#${schema}`)
       )
       .map((v: Base & { [key: string]: any }) =>
-        this.getItem<T>(alias, schema, v.pk.split('#')[2])
+        this.getItem<T>(schema, v.pk.split('#')[2])
       );
 
     return await Promise.all(promiseGetItems);
