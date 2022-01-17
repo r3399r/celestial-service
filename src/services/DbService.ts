@@ -7,7 +7,7 @@ import {
   QueryInput,
 } from 'aws-sdk/clients/dynamodb';
 import { inject, injectable } from 'inversify';
-import { ERROR_CODE } from 'src/constant/error';
+import { ConflictError, InternalServerError, NotFoundError } from 'src/error';
 import { Base } from 'src/model/DbBase';
 import { data2Record, record2Data } from 'src/util/DbHelper';
 import { differenceBy, intersectionByAndDifference } from 'src/util/setTheory';
@@ -34,7 +34,7 @@ export class DbService {
     const res = await this.dynamoDb.query(params).promise();
 
     if (res.Count !== undefined && res.Count > 0)
-      throw new Error(ERROR_CODE.RECORD_EXIST);
+      throw new ConflictError(`${pk} is already exist`);
   }
 
   public async createItem<T>(item: T): Promise<void> {
@@ -65,8 +65,8 @@ export class DbService {
     ]);
 
     if (relatedItem.length > 2)
-      throw new Error(
-        'this item is linked by other schema, please delete linked items first'
+      throw new ConflictError(
+        `${primaryKey} is linked by other schema, please delete linked items first`
       );
 
     await Promise.all([
@@ -179,7 +179,7 @@ export class DbService {
     };
     const raw = await this.dynamoDb.query(params).promise();
     if (raw.Items === undefined || raw.Items.length === 0)
-      throw new Error(ERROR_CODE.RECORD_NOT_FOUND);
+      throw new NotFoundError(`${pk} is not found`);
 
     return raw.Items.map((v: AttributeMap) => {
       return Converter.unmarshall(v) as Base & { [key: string]: any };
@@ -199,7 +199,7 @@ export class DbService {
     };
     const raw = await this.dynamoDb.query(params).promise();
     if (raw.Items === undefined || raw.Items.length === 0)
-      throw new Error(ERROR_CODE.RECORD_NOT_FOUND);
+      throw new NotFoundError(`${sk} is not found`);
 
     return raw.Items.map((v: AttributeMap) => {
       return Converter.unmarshall(v) as Base & { [key: string]: any };
@@ -215,7 +215,10 @@ export class DbService {
       },
     };
     const raw = await this.dynamoDb.getItem(params).promise();
-    if (raw.Item === undefined) throw new Error(ERROR_CODE.RECORD_NOT_FOUND);
+    if (raw.Item === undefined)
+      throw new InternalServerError(
+        'getItem result from DynamoDb is undefined'
+      );
 
     const { pk, sk, attribute, ...rest } = Converter.unmarshall(
       raw.Item
@@ -233,7 +236,8 @@ export class DbService {
       KeyConditionExpression: 'pk = :pk',
     };
     const raw = await this.dynamoDb.query(params).promise();
-    if (raw.Items === undefined) throw new Error(ERROR_CODE.UNEXPECTED_ERROR);
+    if (raw.Items === undefined)
+      throw new InternalServerError('query result from DynamoDb is undefined');
 
     return raw.Items.map((v: AttributeMap) => {
       const { pk, sk, attribute, ...rest } = Converter.unmarshall(v) as Base & {

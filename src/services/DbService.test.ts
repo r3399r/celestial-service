@@ -1,7 +1,6 @@
 import { DynamoDB } from 'aws-sdk';
 import { Converter } from 'aws-sdk/clients/dynamodb';
 import { bindings } from 'src/bindings';
-import { ERROR_CODE } from 'src/constant/error';
 import { Base } from 'src/model/DbBase';
 import {
   data2Record,
@@ -113,7 +112,7 @@ describe('DbService', () => {
       .mockReturnValue(awsMock({ Count: 1 }));
 
     await expect(() => dbService.createItem(newUser)).rejects.toThrowError(
-      ERROR_CODE.RECORD_NOT_FOUND
+      'a#user#000 is not found'
     );
   });
 
@@ -123,7 +122,7 @@ describe('DbService', () => {
     mockDynamoDb.query = jest.fn().mockReturnValue(awsMock({ Count: 1 }));
 
     await expect(() => dbService.createItem(newUser)).rejects.toThrowError(
-      ERROR_CODE.RECORD_EXIST
+      'a#user#000 is already exist'
     );
   });
 
@@ -183,7 +182,7 @@ describe('DbService', () => {
     mockDynamoDb.query = jest.fn().mockReturnValue(awsMock({ Count: 0 }));
 
     await expect(() => dbService.putItem(updatedUser)).rejects.toThrowError(
-      ERROR_CODE.RECORD_NOT_FOUND
+      'a#user#000 is not found'
     );
   });
 
@@ -200,12 +199,12 @@ describe('DbService', () => {
     });
   });
 
-  it('getItem should fail if not found', async () => {
+  it('getItem should fail if aws-sdk not work', async () => {
     mockDynamoDb.getItem = jest.fn().mockReturnValue(awsMock({}));
 
     await expect(() =>
       dbService.getItem('test-schemma', 'test-id')
-    ).rejects.toThrowError(ERROR_CODE.RECORD_NOT_FOUND);
+    ).rejects.toThrowError('getItem result from DynamoDb is undefined');
   });
 
   it('getItems should work', async () => {
@@ -220,11 +219,11 @@ describe('DbService', () => {
     ]);
   });
 
-  it('getItems should fail if not found', async () => {
-    mockDynamoDb.query = jest.fn().mockReturnValue(awsMock([]));
+  it('getItems should fail if aws-sdk not work', async () => {
+    mockDynamoDb.query = jest.fn().mockReturnValue(awsMock({}));
 
     await expect(() => dbService.getItems('test-schemma')).rejects.toThrowError(
-      ERROR_CODE.UNEXPECTED_ERROR
+      'query result from DynamoDb is undefined'
     );
   });
 
@@ -265,9 +264,9 @@ describe('DbService', () => {
       );
 
     await expect(() =>
-      dbService.deleteItem('test-schema', 'test-key')
+      dbService.deleteItem('user', '000')
     ).rejects.toThrowError(
-      'this item is linked by other schema, please delete linked items first'
+      'a#user#000 is linked by other schema, please delete linked items first'
     );
   });
 
@@ -275,8 +274,8 @@ describe('DbService', () => {
     mockDynamoDb.query = jest.fn().mockReturnValue(awsMock({ Items: [] }));
 
     await expect(() =>
-      dbService.deleteItem('test-schema', 'test-key')
-    ).rejects.toThrowError(ERROR_CODE.RECORD_NOT_FOUND);
+      dbService.deleteItem('user', '000')
+    ).rejects.toThrowError('a#user#000 is not found');
   });
 
   it('getItemsByIndex should work', async () => {

@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import { BadRequestError } from 'src/error';
 import { Base } from 'src/model/DbBase';
 
 /**
@@ -76,7 +77,7 @@ export function data2Record<T>(
     delete main[v as keyof T];
     if (items !== undefined) {
       if (!Array.isArray(items))
-        throw new Error(`wrong format. ${v} should be an array`);
+        throw new BadRequestError(`wrong format. ${v} should be an array`);
       items.forEach((o: any) => {
         const relatedRecord = data2Record(o, alias, key, `${v}#many`)[0];
         related.push(relatedRecord);

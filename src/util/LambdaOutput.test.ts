@@ -1,3 +1,4 @@
+import { BadRequestError } from 'src/error';
 import { errorOutput, successOutput } from './LambdaOutput';
 
 /**
@@ -15,14 +16,15 @@ describe('LambdaOutput', () => {
   });
 
   it('errorOutput should work', () => {
-    expect(errorOutput(new Error('a'))).toEqual({
+    expect(errorOutput(new BadRequestError('test'))).toEqual({
       statusCode: 400,
       headers: {
         'Access-Control-Allow-Origin': '*', // Required for CORS support to work
       },
       body: JSON.stringify({
-        code: 400,
-        message: 'a',
+        status: 400,
+        name: 'BadRequestError',
+        message: 'test',
       }),
     });
   });

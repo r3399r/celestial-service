@@ -1,3 +1,4 @@
+import { HttpError } from 'src/error/HttpError';
 import { LambdaOutput } from 'src/model/Lambda';
 
 export function successOutput<T>(res: T): LambdaOutput {
@@ -11,15 +12,16 @@ export function successOutput<T>(res: T): LambdaOutput {
 }
 
 export function errorOutput(e: unknown): LambdaOutput {
-  const error: Error = e as Error;
+  const error: HttpError = e as HttpError;
 
   return {
-    statusCode: 400,
+    statusCode: error.status,
     headers: {
       'Access-Control-Allow-Origin': '*', // Required for CORS support to work
     },
     body: JSON.stringify({
-      code: 400,
+      status: error.status,
+      name: error.name,
       message: error.message,
     }),
   };
