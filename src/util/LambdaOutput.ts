@@ -15,7 +15,7 @@ export function errorOutput(e: unknown): LambdaOutput {
   const error: HttpError = e as HttpError;
 
   return {
-    statusCode: error.status,
+    statusCode: error.status ?? 500,
     headers: {
       'Access-Control-Allow-Origin': '*', // Required for CORS support to work
     },
