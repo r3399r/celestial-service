@@ -62,9 +62,10 @@ describe('DbService', () => {
   let dbService: DbService;
   let mockDynamoDb: any;
   let dummyUser: TestUser;
+  const alias: string = 'a';
 
   beforeAll(() => {
-    process.env.ALIAS = 'a';
+    process.env.ALIAS = alias;
     dummyUser = {
       id: '000',
       name: 'user-name',
@@ -97,7 +98,8 @@ describe('DbService', () => {
     mockDynamoDb.query = jest
       .fn()
       .mockReturnValueOnce(awsMock({ Count: 0 }))
-      .mockReturnValue(awsMock({ Items: [Converter.marshall(newUser)] }));
+      .mockReturnValueOnce(awsMock({ Items: [Converter.marshall(newUser)] }))
+      .mockReturnValue(awsMock({ Items: [] }));
 
     await dbService.createItem(newUser);
     expect(mockDynamoDb.putItem).toBeCalledTimes(4);

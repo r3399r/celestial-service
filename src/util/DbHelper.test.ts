@@ -1,4 +1,5 @@
 import { Base } from 'src/model/DbBase';
+import { compare } from './compare';
 import {
   data2Record,
   entity,
@@ -99,7 +100,11 @@ describe('DbHelper', () => {
   let dummyClassDataWithUndefined: Class;
   let dummyClassObjDuplicatedUser: Class;
   let dummyClassDataDuplicatedUser: Class;
-  let dummyClassRecord: (Base & { [key: string]: any })[];
+  let dummyClassRecord1: (Base & { [key: string]: any })[];
+  let dummyClassRecord2: (Base & { [key: string]: any })[];
+  let dummyRelatedRecord1: (Base & { [key: string]: any })[];
+  let dummyRelatedRecord2: (Base & { [key: string]: any })[];
+  let dummyRelatedRecord3: (Base & { [key: string]: any })[];
   let dummyClassRecordDuplicatedUser: (Base & { [key: string]: any })[];
   let dummyLeader: User;
   let dummyViceLeader: User;
@@ -144,7 +149,7 @@ describe('DbHelper', () => {
       time: 'test-time',
     };
     dummyClassDataDuplicatedUser = new ClassEntity(dummyClassObjDuplicatedUser);
-    dummyClassRecord = [
+    dummyClassRecord1 = [
       {
         pk: `${alias}#class#abc`,
         sk: `${alias}#class#abc`,
@@ -157,43 +162,75 @@ describe('DbHelper', () => {
         pk: `${alias}#class#abc`,
         sk: `${alias}#user#124`,
         attribute: 'leader#one',
-        id: '124',
-        name: 'Wang',
-      },
-      {
-        pk: `${alias}#class#abc`,
-        sk: `${alias}#user#125`,
-        attribute: 'viceLeader#one',
-        id: '125',
-        name: 'Chen',
-      },
-      {
-        pk: `${alias}#class#abc`,
-        sk: `${alias}#user#126`,
-        attribute: 'member#many',
-        id: '126',
-        name: 'Chang',
-      },
-      {
-        pk: `${alias}#class#abc`,
-        sk: `${alias}#user#127`,
-        attribute: 'member#many',
-        id: '127',
-        name: 'Lin',
       },
       {
         pk: `${alias}#class#abc`,
         sk: `${alias}#user#128`,
         attribute: 'teacher#many',
-        id: '128',
-        name: 'Lai',
       },
       {
         pk: `${alias}#class#abc`,
         sk: `${alias}#user#129`,
         attribute: 'teacher#many',
-        id: '129',
-        name: 'Liu',
+      },
+    ];
+    dummyRelatedRecord1 = [
+      {
+        pk: `${alias}#user`,
+        sk: `${alias}#user#124`,
+        attribute: undefined,
+        ...dummyLeader,
+      },
+      {
+        pk: `${alias}#user`,
+        sk: `${alias}#user#128`,
+        attribute: undefined,
+        ...dummyTeacherA,
+      },
+      {
+        pk: `${alias}#user`,
+        sk: `${alias}#user#129`,
+        attribute: undefined,
+        ...dummyTeacherB,
+      },
+    ];
+    dummyClassRecord2 = [
+      ...dummyClassRecord1,
+      {
+        pk: `${alias}#class#abc`,
+        sk: `${alias}#user#125`,
+        attribute: 'viceLeader#one',
+      },
+      {
+        pk: `${alias}#class#abc`,
+        sk: `${alias}#user#126`,
+        attribute: 'member#many',
+      },
+      {
+        pk: `${alias}#class#abc`,
+        sk: `${alias}#user#127`,
+        attribute: 'member#many',
+      },
+    ];
+    dummyRelatedRecord2 = [
+      ...dummyRelatedRecord1,
+      {
+        pk: `${alias}#user`,
+        sk: `${alias}#user#125`,
+        attribute: undefined,
+        ...dummyViceLeader,
+      },
+      {
+        pk: `${alias}#user`,
+        sk: `${alias}#user#126`,
+        attribute: undefined,
+        ...dummyClassmateA,
+      },
+      {
+        pk: `${alias}#user`,
+        sk: `${alias}#user#127`,
+        attribute: undefined,
+        ...dummyClassmateB,
       },
     ];
     dummyClassRecordDuplicatedUser = [
@@ -209,36 +246,41 @@ describe('DbHelper', () => {
         pk: `${alias}#class#abcd`,
         sk: `${alias}#user#124`,
         attribute: 'leader#one::viceLeader#one::member#many',
-        id: '124',
-        name: 'Wang',
       },
       {
         pk: `${alias}#class#abcd`,
         sk: `${alias}#user#126`,
         attribute: 'member#many',
-        id: '126',
-        name: 'Chang',
       },
       {
         pk: `${alias}#class#abcd`,
         sk: `${alias}#user#127`,
         attribute: 'member#many',
-        id: '127',
-        name: 'Lin',
       },
       {
         pk: `${alias}#class#abcd`,
         sk: `${alias}#user#128`,
         attribute: 'teacher#many',
-        id: '128',
-        name: 'Lai',
       },
       {
         pk: `${alias}#class#abcd`,
         sk: `${alias}#user#129`,
         attribute: 'teacher#many',
-        id: '129',
-        name: 'Liu',
+      },
+    ];
+    dummyRelatedRecord3 = [
+      ...dummyRelatedRecord1,
+      {
+        pk: `${alias}#user`,
+        sk: `${alias}#user#126`,
+        attribute: undefined,
+        ...dummyClassmateA,
+      },
+      {
+        pk: `${alias}#user`,
+        sk: `${alias}#user#127`,
+        attribute: undefined,
+        ...dummyClassmateB,
       },
     ];
   });
@@ -252,15 +294,14 @@ describe('DbHelper', () => {
         ...dummyLeader,
       },
     ]);
-    expect(data2Record(dummyClassData, alias)).toStrictEqual(dummyClassRecord);
+    expect(
+      data2Record(dummyClassData, alias).sort(compare('sk'))
+    ).toStrictEqual(dummyClassRecord2.sort(compare('sk')));
   });
 
   it('data2Record should work if some attribute is empty', () => {
     expect(data2Record(dummyClassDataWithUndefined, alias)).toStrictEqual(
-      dummyClassRecord.filter(
-        (v: Base & { [key: string]: any }) =>
-          v.attribute !== 'viceLeader#one' && v.attribute !== 'member#many'
-      )
+      dummyClassRecord1
     );
   });
 
@@ -277,20 +318,17 @@ describe('DbHelper', () => {
   });
 
   it('record2Data should work', () => {
-    expect(record2Data(dummyClassRecord)).toStrictEqual(dummyClassObj);
-    expect(
-      record2Data(
-        dummyClassRecord.filter(
-          (v: Base & { [key: string]: any }) =>
-            v.attribute !== 'viceLeader#one' && v.attribute !== 'member#many'
-        )
-      )
-    ).toStrictEqual(dummyClassObjWithUndefined);
+    expect(record2Data(dummyClassRecord2, dummyRelatedRecord2)).toStrictEqual(
+      dummyClassObj
+    );
+    expect(record2Data(dummyClassRecord1, dummyRelatedRecord1)).toStrictEqual(
+      dummyClassObjWithUndefined
+    );
   });
 
   it('record2Data should work if user is put multiple times', () => {
-    expect(record2Data(dummyClassRecordDuplicatedUser)).toStrictEqual(
-      dummyClassObjDuplicatedUser
-    );
+    expect(
+      record2Data(dummyClassRecordDuplicatedUser, dummyRelatedRecord3)
+    ).toStrictEqual(dummyClassObjDuplicatedUser);
   });
 });

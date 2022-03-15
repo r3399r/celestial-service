@@ -7,7 +7,7 @@
   "scripts": {
     "lint:ts": "tslint --project .",
     "fix:ts": "npm run lint:ts -- --fix",
-    "lint:format": "prettier --config ./prettierrc.json --list-different \"./**/*.ts\"",
+    "lint:format": "prettier --config ./prettierrc.json --list-different \"./**/*.ts\" --ignore-path .gitignore",
     "fix:format": "npm run lint:format -- --write",
     "lint": "run-p lint:*",
     "fix": "run-s fix:*",

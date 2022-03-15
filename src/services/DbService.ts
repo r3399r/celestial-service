@@ -156,7 +156,21 @@ export class DbService {
 
   private async updateListItem<T>(pk: string): Promise<void> {
     const raw = await this.getRawItem(pk);
-    const res = record2Data<T>(raw);
+    const rawRelated = await Promise.all(
+      raw
+        .filter((v: Base & { [key: string]: any }) => v.attribute !== undefined)
+        .map(async (v: Base & { [key: string]: any }) => {
+          const realtedSchema = v.sk.split('#')[1];
+          const id = v.sk.split('#')[2];
+
+          return this.getItem<Base & { [key: string]: any }>(
+            realtedSchema,
+            id,
+            true
+          );
+        })
+    );
+    const res = record2Data<T>(raw, rawRelated);
 
     const alias = pk.split('#')[0];
     const schema = pk.split('#')[1];
@@ -206,7 +220,11 @@ export class DbService {
     });
   }
 
-  public async getItem<T>(schema: string, id: string): Promise<T> {
+  public async getItem<T>(
+    schema: string,
+    id: string,
+    full: boolean = false
+  ): Promise<T> {
     const params: GetItemInput = {
       TableName: this.tableName,
       Key: {
@@ -219,6 +237,8 @@ export class DbService {
       throw new InternalServerError(
         'getItem result from DynamoDb is undefined'
       );
+
+    if (full) return Converter.unmarshall(raw.Item) as T;
 
     const { pk, sk, attribute, ...rest } = Converter.unmarshall(
       raw.Item

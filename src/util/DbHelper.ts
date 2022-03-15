@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import { BadRequestError } from 'src/error';
+import { BadRequestError, InternalServerError } from 'src/error';
 import { Base } from 'src/model/DbBase';
 
 /**
@@ -54,7 +54,7 @@ export function data2Record<T>(
     attribute,
     ...input,
   };
-  if (pk !== undefined) return [main];
+  if (pk !== undefined) return [{ pk, sk: key, attribute }];
 
   const related: (Base & { [key: string]: any })[] = [];
   const skSet = new Set<string>();
@@ -100,13 +100,27 @@ export function data2Record<T>(
   return [main, ...mergedRelated];
 }
 
-export function record2Data<T>(record: (Base & { [key: string]: any })[]): T {
+export function record2Data<T>(
+  record: (Base & { [key: string]: any })[],
+  relatedRecord: (Base & { [key: string]: any })[]
+): T {
   let data: Partial<T> = {};
+  const idAndAttribute: Map<string, string> = new Map();
+
   record.forEach((v: Base & { [key: string]: any }) => {
     const { pk, sk, attribute, ...rest } = v;
-    if (v.attribute === undefined) data = { ...data, ...rest };
-    else
-      v.attribute.split('::').forEach((att: string) => {
+    if (attribute === undefined) data = { ...data, ...rest };
+    else idAndAttribute.set(sk, attribute);
+  });
+
+  relatedRecord
+    .filter((v: Base & { [key: string]: any }) => v.pk.split('#').length === 2)
+    .forEach((v: Base & { [key: string]: any }) => {
+      const { pk, sk, attribute: unused, ...rest } = v;
+      const attribute = idAndAttribute.get(sk);
+      if (attribute === undefined)
+        throw new InternalServerError(`${sk} not found in the record`);
+      attribute.split('::').forEach((att: string) => {
         const attributeName: keyof T = att.split('#')[0] as keyof T;
         const attributeType = att.split('#')[1];
 
@@ -119,7 +133,7 @@ export function record2Data<T>(record: (Base & { [key: string]: any })[]): T {
             data = { ...data, [attributeName]: [...oldAttribute, rest] };
         }
       });
-  });
+    });
 
   return data as T;
 }
