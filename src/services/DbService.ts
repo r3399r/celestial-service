@@ -8,7 +8,7 @@ import {
 } from 'aws-sdk/clients/dynamodb';
 import { inject, injectable } from 'inversify';
 import { ConflictError, InternalServerError, NotFoundError } from 'src/error';
-import { Base } from 'src/model/DbBase';
+import { Doc } from 'src/model/DbBase';
 import { data2Record, record2Data } from 'src/util/DbHelper';
 import { differenceBy, intersectionByAndDifference } from 'src/util/setTheory';
 
@@ -22,7 +22,14 @@ export class DbService {
   private readonly tableName: string = `celestial-db-${process.env.ENVR}`;
   private readonly alias: string = process.env.ALIAS ?? 'undefined';
 
+  // save data in local to reduce query times {pk::sk => data}
+  private readonly cache: Map<string, Doc> = new Map();
+
   private async checkIfItemExist(pk: string): Promise<any> {
+    this.cache.forEach((_v: Doc, key: string) => {
+      if (key.includes(pk)) throw new ConflictError(`${pk} is already exist`);
+    });
+
     const params: QueryInput = {
       TableName: this.tableName,
       Select: 'COUNT',
@@ -42,11 +49,12 @@ export class DbService {
     await this.checkIfItemExist(record[0].pk);
 
     await Promise.all(
-      record.map(async (v: Base & { [key: string]: any }) => {
+      record.map(async (v: Doc) => {
         const params: PutItemInput = {
           TableName: this.tableName,
           Item: Converter.marshall(v),
         };
+        this.cache.set(`${v.pk}::${v.sk}`, v);
 
         return this.dynamoDb.putItem(params).promise();
       })
@@ -70,7 +78,9 @@ export class DbService {
       );
 
     await Promise.all([
-      ...mainItem.map(async (v: Base & { [key: string]: any }) => {
+      ...mainItem.map(async (v: Doc) => {
+        this.cache.delete(`${v.pk}::${v.sk}`);
+
         return this.dynamoDb
           .deleteItem({
             TableName: this.tableName,
@@ -79,8 +89,10 @@ export class DbService {
           .promise();
       }),
       ...relatedItem
-        .filter((v: Base & { [key: string]: any }) => v.pk !== v.sk)
-        .map(async (v: Base & { [key: string]: any }) => {
+        .filter((v: Doc) => v.pk !== v.sk)
+        .map(async (v: Doc) => {
+          this.cache.delete(`${v.pk}::${v.sk}`);
+
           return this.dynamoDb
             .deleteItem({
               TableName: this.tableName,
@@ -104,17 +116,19 @@ export class DbService {
     const itemToAdd = differenceBy(newRecord, oldRecord, 'sk');
 
     await Promise.all([
-      ...[...itemToPut, ...itemToAdd].map(
-        async (v: Base & { [key: string]: any }) => {
-          return this.dynamoDb
-            .putItem({
-              TableName: this.tableName,
-              Item: Converter.marshall(v),
-            })
-            .promise();
-        }
-      ),
-      ...itemToDelete.map(async (v: Base & { [key: string]: any }) => {
+      ...[...itemToPut, ...itemToAdd].map(async (v: Doc) => {
+        this.cache.set(`${v.pk}::${v.sk}`, v);
+
+        return this.dynamoDb
+          .putItem({
+            TableName: this.tableName,
+            Item: Converter.marshall(v),
+          })
+          .promise();
+      }),
+      ...itemToDelete.map(async (v: Doc) => {
+        this.cache.delete(`${v.pk}::${v.sk}`);
+
         return this.dynamoDb
           .deleteItem({
             TableName: this.tableName,
@@ -123,11 +137,10 @@ export class DbService {
           .promise();
       }),
       ...relatedItem
-        .filter(
-          (v: Base & { [key: string]: any }) =>
-            v.pk !== v.sk && v.pk !== `${this.alias}#${schema}`
-        )
-        .map(async (v: Base & { [key: string]: any }) => {
+        .filter((v: Doc) => v.pk !== v.sk && v.pk !== `${this.alias}#${schema}`)
+        .map(async (v: Doc) => {
+          this.cache.set(`${v.pk}::${v.sk}`, v);
+
           return this.dynamoDb
             .putItem({
               TableName: this.tableName,
@@ -144,11 +157,8 @@ export class DbService {
     await Promise.all([
       this.updateListItem<T>(newRecord[0].pk),
       ...relatedItem
-        .filter(
-          (v: Base & { [key: string]: any }) =>
-            v.pk !== v.sk && v.pk !== `${this.alias}#${schema}`
-        )
-        .map(async (v: Base & { [key: string]: any }) => {
+        .filter((v: Doc) => v.pk !== v.sk && v.pk !== `${this.alias}#${schema}`)
+        .map(async (v: Doc) => {
           return this.updateListItem(v.pk);
         }),
     ]);
@@ -158,16 +168,12 @@ export class DbService {
     const raw = await this.getRawItem(pk);
     const rawRelated = await Promise.all(
       raw
-        .filter((v: Base & { [key: string]: any }) => v.attribute !== undefined)
-        .map(async (v: Base & { [key: string]: any }) => {
-          const realtedSchema = v.sk.split('#')[1];
+        .filter((v: Doc) => v.attribute !== undefined)
+        .map(async (v: Doc) => {
+          const relatedSchema = v.sk.split('#')[1];
           const id = v.sk.split('#')[2];
 
-          return this.getItem<Base & { [key: string]: any }>(
-            realtedSchema,
-            id,
-            true
-          );
+          return this.getItem<Doc>(relatedSchema, id, true);
         })
     );
     const res = record2Data<T>(raw, rawRelated);
@@ -178,12 +184,16 @@ export class DbService {
       TableName: this.tableName,
       Item: Converter.marshall({ pk: `${alias}#${schema}`, sk: pk, ...res }),
     };
+    this.cache.set(`${alias}#${schema}::${pk}`, {
+      pk: `${alias}#${schema}`,
+      sk: pk,
+      attribute: undefined,
+      ...res,
+    });
     await this.dynamoDb.putItem(putItemParams).promise();
   }
 
-  private async getRawItem(
-    pk: string
-  ): Promise<(Base & { [key: string]: any })[]> {
+  private async getRawItem(pk: string): Promise<Doc[]> {
     const params: QueryInput = {
       TableName: this.tableName,
       ExpressionAttributeValues: {
@@ -196,13 +206,14 @@ export class DbService {
       throw new NotFoundError(`${pk} is not found`);
 
     return raw.Items.map((v: AttributeMap) => {
-      return Converter.unmarshall(v) as Base & { [key: string]: any };
+      const res = Converter.unmarshall(v) as Doc;
+      this.cache.set(`${pk}::${res.sk}`, res);
+
+      return res;
     });
   }
 
-  private async getRawItemByIndex(
-    sk: string
-  ): Promise<(Base & { [key: string]: any })[]> {
+  private async getRawItemByIndex(sk: string): Promise<Doc[]> {
     const params: QueryInput = {
       TableName: this.tableName,
       IndexName: 'sk-pk-index',
@@ -216,7 +227,10 @@ export class DbService {
       throw new NotFoundError(`${sk} is not found`);
 
     return raw.Items.map((v: AttributeMap) => {
-      return Converter.unmarshall(v) as Base & { [key: string]: any };
+      const res = Converter.unmarshall(v) as Doc;
+      this.cache.set(`${res.pk}::${sk}`, res);
+
+      return res;
     });
   }
 
@@ -225,6 +239,21 @@ export class DbService {
     id: string,
     full: boolean = false
   ): Promise<T> {
+    const res = this.cache.get(
+      `${this.alias}#${schema}::${this.alias}#${schema}#${id}`
+    );
+    if (res !== undefined && full) return res as unknown as T;
+    if (res !== undefined && full === false) {
+      const {
+        pk: unusedPk,
+        sk: unusedSk,
+        attribute: unusedAtt,
+        ...itemRest
+      } = res;
+
+      return itemRest as T;
+    }
+
     const params: GetItemInput = {
       TableName: this.tableName,
       Key: {
@@ -238,11 +267,11 @@ export class DbService {
         'getItem result from DynamoDb is undefined'
       );
 
-    if (full) return Converter.unmarshall(raw.Item) as T;
+    const item = Converter.unmarshall(raw.Item) as Doc;
+    const { pk, sk, attribute, ...rest } = item;
+    this.cache.set(`${pk}::${sk}`, item);
 
-    const { pk, sk, attribute, ...rest } = Converter.unmarshall(
-      raw.Item
-    ) as Base & { [key: string]: any };
+    if (full) return item as unknown as T;
 
     return rest as T;
   }
@@ -260,9 +289,7 @@ export class DbService {
       throw new InternalServerError('query result from DynamoDb is undefined');
 
     return raw.Items.map((v: AttributeMap) => {
-      const { pk, sk, attribute, ...rest } = Converter.unmarshall(v) as Base & {
-        [key: string]: any;
-      };
+      const { pk, sk, attribute, ...rest } = Converter.unmarshall(v) as Doc;
 
       return rest as T;
     });
@@ -277,12 +304,8 @@ export class DbService {
       `${this.alias}#${indexSchema}#${indexId}`
     );
     const promiseGetItems = items
-      .filter((v: Base & { [key: string]: any }) =>
-        v.pk.startsWith(`${this.alias}#${schema}`)
-      )
-      .map((v: Base & { [key: string]: any }) =>
-        this.getItem<T>(schema, v.pk.split('#')[2])
-      );
+      .filter((v: Doc) => v.pk.startsWith(`${this.alias}#${schema}`))
+      .map((v: Doc) => this.getItem<T>(schema, v.pk.split('#')[2]));
 
     return await Promise.all(promiseGetItems);
   }

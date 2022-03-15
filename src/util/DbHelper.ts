@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { BadRequestError, InternalServerError } from 'src/error';
-import { Base } from 'src/model/DbBase';
+import { Doc } from 'src/model/DbBase';
 
 /**
  * This util is a practice for the adjacency list design patter
@@ -43,7 +43,7 @@ export function data2Record<T>(
   alias: string,
   pk?: string,
   attribute?: string
-): (Base & { [key: string]: any })[] {
+): Doc[] {
   const entityName: string = Reflect.getMetadata('entity', input);
   const primary: keyof T = Reflect.getMetadata('primaryAttribute', input);
   const key = `${alias}#${entityName}#${input[primary]}`;
@@ -56,7 +56,7 @@ export function data2Record<T>(
   };
   if (pk !== undefined) return [{ pk, sk: key, attribute }];
 
-  const related: (Base & { [key: string]: any })[] = [];
+  const related: Doc[] = [];
   const skSet = new Set<string>();
 
   const attributesOne = Reflect.getMetadata('relatedAttributeOne', input) ?? [];
@@ -86,13 +86,11 @@ export function data2Record<T>(
     }
   });
 
-  const mergedRelated: (Base & { [key: string]: any })[] = [];
+  const mergedRelated: Doc[] = [];
   skSet.forEach((sk: string) => {
-    const relatedBySk = related.filter(
-      (v: Base & { [key: string]: any }) => v.sk === sk
-    );
+    const relatedBySk = related.filter((v: Doc) => v.sk === sk);
     const mergedAttributes = relatedBySk
-      .map((v: Base & { [key: string]: any }) => v.attribute)
+      .map((v: Doc) => v.attribute)
       .join('::');
     mergedRelated.push({ ...relatedBySk[0], attribute: mergedAttributes });
   });
@@ -100,22 +98,19 @@ export function data2Record<T>(
   return [main, ...mergedRelated];
 }
 
-export function record2Data<T>(
-  record: (Base & { [key: string]: any })[],
-  relatedRecord: (Base & { [key: string]: any })[]
-): T {
+export function record2Data<T>(record: Doc[], relatedRecord: Doc[]): T {
   let data: Partial<T> = {};
   const idAndAttribute: Map<string, string> = new Map();
 
-  record.forEach((v: Base & { [key: string]: any }) => {
+  record.forEach((v: Doc) => {
     const { pk, sk, attribute, ...rest } = v;
     if (attribute === undefined) data = { ...data, ...rest };
     else idAndAttribute.set(sk, attribute);
   });
 
   relatedRecord
-    .filter((v: Base & { [key: string]: any }) => v.pk.split('#').length === 2)
-    .forEach((v: Base & { [key: string]: any }) => {
+    .filter((v: Doc) => v.pk.split('#').length === 2)
+    .forEach((v: Doc) => {
       const { pk, sk, attribute: unused, ...rest } = v;
       const attribute = idAndAttribute.get(sk);
       if (attribute === undefined)

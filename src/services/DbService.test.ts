@@ -1,7 +1,7 @@
 import { DynamoDB } from 'aws-sdk';
 import { Converter } from 'aws-sdk/clients/dynamodb';
 import { bindings } from 'src/bindings';
-import { Base } from 'src/model/DbBase';
+import { Doc } from 'src/model/DbBase';
 import {
   data2Record,
   entity,
@@ -94,12 +94,51 @@ describe('DbService', () => {
 
   it('createItem should work', async () => {
     const newUser = new TestUserEntity(dummyUser);
+    const userDoc = {
+      pk: 'a#user#000',
+      sk: 'a#user#000',
+      id: '000',
+      name: 'user-name',
+    };
+    const userPetDoc1 = {
+      pk: 'a#user#000',
+      sk: 'a#pet#001',
+      attribute: 'pet#many',
+    };
+    const userPetDoc2 = {
+      pk: 'a#user#000',
+      sk: 'a#pet#002',
+      attribute: 'pet#many',
+    };
+    const petDoc1 = {
+      pk: 'a#pet#001',
+      sk: 'a#pet#001',
+      id: '001',
+      isDog: true,
+    };
+    const petDoc2 = {
+      pk: 'a#pet#002',
+      sk: 'a#pet#002',
+      id: '002',
+      isDog: false,
+    };
 
     mockDynamoDb.query = jest
       .fn()
       .mockReturnValueOnce(awsMock({ Count: 0 }))
-      .mockReturnValueOnce(awsMock({ Items: [Converter.marshall(newUser)] }))
-      .mockReturnValue(awsMock({ Items: [] }));
+      .mockReturnValueOnce(
+        awsMock({
+          Items: [
+            Converter.marshall(userDoc),
+            Converter.marshall(userPetDoc1),
+            Converter.marshall(userPetDoc2),
+          ],
+        })
+      );
+    mockDynamoDb.getItem = jest
+      .fn()
+      .mockReturnValueOnce(awsMock({ Item: Converter.marshall(petDoc1) }))
+      .mockReturnValueOnce(awsMock({ Item: Converter.marshall(petDoc2) }));
 
     await dbService.createItem(newUser);
     expect(mockDynamoDb.putItem).toBeCalledTimes(4);
@@ -123,6 +162,21 @@ describe('DbService', () => {
 
     mockDynamoDb.query = jest.fn().mockReturnValue(awsMock({ Count: 1 }));
 
+    await expect(() => dbService.createItem(newUser)).rejects.toThrowError(
+      'a#user#000 is already exist'
+    );
+  });
+
+  it('createItem should fail if create twice', async () => {
+    const newUser = new TestUserEntity(dummyUser);
+
+    mockDynamoDb.query = jest
+      .fn()
+      .mockReturnValueOnce(awsMock({ Count: 0 }))
+      .mockReturnValueOnce(awsMock({ Items: [Converter.marshall(newUser)] }))
+      .mockReturnValue(awsMock({ Items: [] }));
+
+    await dbService.createItem(newUser);
     await expect(() => dbService.createItem(newUser)).rejects.toThrowError(
       'a#user#000 is already exist'
     );
@@ -158,9 +212,7 @@ describe('DbService', () => {
       .fn()
       .mockReturnValueOnce(
         awsMock({
-          Items: oldUser.map((v: Base & { [key: string]: any }) =>
-            Converter.marshall(v)
-          ),
+          Items: oldUser.map((v: Doc) => Converter.marshall(v)),
         })
       )
       .mockReturnValue(
@@ -189,16 +241,23 @@ describe('DbService', () => {
   });
 
   it('getItem should work', async () => {
-    mockDynamoDb.getItem = jest.fn().mockReturnValue(
-      awsMock({
-        Item: Converter.marshall({ pk: 'pk', sk: 'sk', a: 1, b: 2 }),
-      })
-    );
+    const item1 = { a: 1, b: 2 };
+    const fullItem1 = { ...item1, pk: 'a#user', sk: 'a#user#000' };
+    const item2 = { a: 3, b: 4 };
+    const fullItem2 = { ...item2, pk: 'a#user', sk: 'a#user#001' };
+    mockDynamoDb.getItem = jest
+      .fn()
+      .mockReturnValueOnce(awsMock({ Item: Converter.marshall(fullItem1) }))
+      .mockReturnValue(awsMock({ Item: Converter.marshall(fullItem2) }));
 
-    expect(await dbService.getItem('test-schemma', 'test-id')).toStrictEqual({
-      a: 1,
-      b: 2,
-    });
+    expect(await dbService.getItem('user', '000')).toStrictEqual(item1);
+    expect(await dbService.getItem('user', '001', true)).toStrictEqual(
+      fullItem2
+    );
+    expect(await dbService.getItem('user', '000', true)).toStrictEqual(
+      fullItem1
+    );
+    expect(await dbService.getItem('user', '001')).toStrictEqual(item2);
   });
 
   it('getItem should fail if aws-sdk not work', async () => {

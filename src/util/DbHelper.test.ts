@@ -1,4 +1,4 @@
-import { Base } from 'src/model/DbBase';
+import { Doc } from 'src/model/DbBase';
 import { compare } from './compare';
 import {
   data2Record,
@@ -100,12 +100,12 @@ describe('DbHelper', () => {
   let dummyClassDataWithUndefined: Class;
   let dummyClassObjDuplicatedUser: Class;
   let dummyClassDataDuplicatedUser: Class;
-  let dummyClassRecord1: (Base & { [key: string]: any })[];
-  let dummyClassRecord2: (Base & { [key: string]: any })[];
-  let dummyRelatedRecord1: (Base & { [key: string]: any })[];
-  let dummyRelatedRecord2: (Base & { [key: string]: any })[];
-  let dummyRelatedRecord3: (Base & { [key: string]: any })[];
-  let dummyClassRecordDuplicatedUser: (Base & { [key: string]: any })[];
+  let dummyClassRecord1: Doc[];
+  let dummyClassRecord2: Doc[];
+  let dummyRelatedRecord1: Doc[];
+  let dummyRelatedRecord2: Doc[];
+  let dummyRelatedRecord3: Doc[];
+  let dummyClassRecordDuplicatedUser: Doc[];
   let dummyLeader: User;
   let dummyViceLeader: User;
   let dummyClassmateA: User;
