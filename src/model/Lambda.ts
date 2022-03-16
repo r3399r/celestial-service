@@ -15,5 +15,6 @@ export type LambdaEvent = {
     'x-api-token': string;
   };
   body: string | null;
-  pathParameters: { id: string } | null;
+  pathParameters: { [key: string]: string } | null;
+  queryStringParameters: { [key: string]: string } | null;
 };
