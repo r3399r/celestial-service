@@ -158,9 +158,7 @@ export class DbService {
       this.updateListItem<T>(newRecord[0].pk),
       ...relatedItem
         .filter((v: Doc) => v.pk !== v.sk && v.pk !== `${this.alias}#${schema}`)
-        .map(async (v: Doc) => {
-          return this.updateListItem(v.pk);
-        }),
+        .map(async (v: Doc) => this.updateListItem(v.pk)),
     ]);
   }
 
@@ -237,7 +235,7 @@ export class DbService {
   public async getItem<T>(
     schema: string,
     id: string,
-    full: boolean = false
+    full = false
   ): Promise<T> {
     const res = this.cache.get(
       `${this.alias}#${schema}::${this.alias}#${schema}#${id}`
@@ -245,9 +243,9 @@ export class DbService {
     if (res !== undefined && full) return res as unknown as T;
     if (res !== undefined && full === false) {
       const {
-        pk: unusedPk,
-        sk: unusedSk,
-        attribute: unusedAtt,
+        pk: pkIgnored,
+        sk: skIgnored,
+        attribute: attIgnored,
         ...itemRest
       } = res;
 
@@ -268,7 +266,7 @@ export class DbService {
       );
 
     const item = Converter.unmarshall(raw.Item) as Doc;
-    const { pk, sk, attribute, ...rest } = item;
+    const { pk, sk, attribute: attIgnored, ...rest } = item;
     this.cache.set(`${pk}::${sk}`, item);
 
     if (full) return item as unknown as T;
@@ -289,7 +287,12 @@ export class DbService {
       throw new InternalServerError('query result from DynamoDb is undefined');
 
     return raw.Items.map((v: AttributeMap) => {
-      const { pk, sk, attribute, ...rest } = Converter.unmarshall(v) as Doc;
+      const {
+        pk: pkIgnored,
+        sk: skIgnored,
+        attribute: attIgnored,
+        ...rest
+      } = Converter.unmarshall(v) as Doc;
 
       return rest as T;
     });

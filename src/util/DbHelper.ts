@@ -103,7 +103,7 @@ export function record2Data<T>(record: Doc[], relatedRecord: Doc[]): T {
   const idAndAttribute: Map<string, string> = new Map();
 
   record.forEach((v: Doc) => {
-    const { pk, sk, attribute, ...rest } = v;
+    const { pk: pkIgnored, sk, attribute, ...rest } = v;
     if (attribute === undefined) data = { ...data, ...rest };
     else idAndAttribute.set(sk, attribute);
   });
@@ -111,7 +111,7 @@ export function record2Data<T>(record: Doc[], relatedRecord: Doc[]): T {
   relatedRecord
     .filter((v: Doc) => v.pk.split('#').length === 2)
     .forEach((v: Doc) => {
-      const { pk, sk, attribute: unused, ...rest } = v;
+      const { pk: pkIgnored, sk, attribute: attIgnored, ...rest } = v;
       const attribute = idAndAttribute.get(sk);
       if (attribute === undefined)
         throw new InternalServerError(`${sk} not found in the record`);

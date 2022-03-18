@@ -112,7 +112,7 @@ describe('DbHelper', () => {
   let dummyClassmateB: User;
   let dummyTeacherA: User;
   let dummyTeacherB: User;
-  const alias: string = 'test-alias';
+  const alias = 'test-alias';
 
   beforeAll(() => {
     dummyLeader = { id: '124', name: 'Wang' };

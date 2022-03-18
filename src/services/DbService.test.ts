@@ -8,8 +8,8 @@ import {
   primaryAttribute,
   relatedAttributeMany,
 } from 'src/util/DbHelper';
-import { awsMock } from 'test/awsMock';
 import { DbService } from './DbService';
+import { awsMock } from 'test/awsMock';
 
 type TestUser = {
   id: string;
@@ -62,7 +62,7 @@ describe('DbService', () => {
   let dbService: DbService;
   let mockDynamoDb: any;
   let dummyUser: TestUser;
-  const alias: string = 'a';
+  const alias = 'a';
 
   beforeAll(() => {
     process.env.ALIAS = alias;

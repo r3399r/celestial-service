@@ -13,7 +13,7 @@
       "dom.iterable",
       "scripthost"
     ],
-    "module": "commonjs",
+    "module": "es6",
     "moduleResolution": "node",
     "noEmitOnError": true,
     "noFallthroughCasesInSwitch": true,
@@ -31,7 +31,11 @@
     },
     "plugins": [
       {
-        "transform": "@zerollup/ts-transform-paths"
+        "transform": "typescript-transform-paths"
+      },
+      {
+        "transform": "typescript-transform-paths",
+        "afterDeclarations": true
       }
     ],
     "rootDir": ".",
