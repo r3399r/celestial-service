@@ -11,9 +11,7 @@ export type LambdaContext = {
 export type LambdaEvent = {
   resource: string;
   httpMethod: string;
-  headers: {
-    'x-api-token': string;
-  };
+  headers: { [key: string]: string } | null;
   body: string | null;
   pathParameters: { [key: string]: string } | null;
   queryStringParameters: { [key: string]: string } | null;
