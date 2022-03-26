@@ -44,7 +44,9 @@ export function data2Record<T>(
   pk?: string,
   attribute?: string
 ): Doc[] {
-  const entityName: string = Reflect.getMetadata('entity', input);
+  const entityName: string | undefined = Reflect.getMetadata('entity', input);
+  if (entityName === undefined)
+    throw new BadRequestError('input entity has no entityName');
   const primary: keyof T = Reflect.getMetadata('primaryAttribute', input);
   const key = `${alias}#${entityName}#${input[primary]}`;
 
