@@ -177,7 +177,7 @@ export class DbService {
     const items = raw.Items.map((v) => Converter.unmarshall(v) as Doc);
     let res = {} as T;
     items.forEach((v) => {
-      const { pk, sk, attribute, ...rest } = v;
+      const { pk: pkIgnored, sk, attribute, ...rest } = v;
       if (attribute === undefined) res = { ...res, ...rest };
       else
         attribute.split('::').forEach((att) => {
