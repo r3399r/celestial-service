@@ -2,6 +2,7 @@ import { DynamoDB } from 'aws-sdk';
 import {
   AttributeMap,
   Converter,
+  GetItemInput,
   PutItemInput,
   QueryInput,
 } from 'aws-sdk/clients/dynamodb';
@@ -21,24 +22,31 @@ export class DbService {
   private readonly tableName: string = `celestial-db-${process.env.ENVR}`;
   private readonly alias: string = process.env.ALIAS ?? 'undefined';
 
-  private async checkIfItemExist(pk: string): Promise<any> {
-    const params: QueryInput = {
+  private async checkIfItemExistByPk(pk: string): Promise<boolean> {
+    const params: GetItemInput = {
       TableName: this.tableName,
-      Select: 'COUNT',
-      ExpressionAttributeValues: {
-        ':pk': { S: pk },
+      Key: {
+        pk: { S: pk },
+        sk: { S: pk },
       },
-      KeyConditionExpression: 'pk = :pk',
     };
-    const res = await this.dynamoDb.query(params).promise();
+    const raw = await this.dynamoDb.getItem(params).promise();
+    if (raw.Item === undefined) return false;
 
-    if (res.Count !== undefined && res.Count > 0)
-      throw new ConflictError(`${pk} is already exist`);
+    return true;
+  }
+
+  public async checkIfItemExist(schema: string, id: string): Promise<boolean> {
+    const pk = `${this.alias}#${schema}#${id}`;
+
+    return await this.checkIfItemExistByPk(pk);
   }
 
   public async createItem<T>(item: T): Promise<void> {
     const record = data2Record(item, this.alias);
-    await this.checkIfItemExist(record[0].pk);
+    const itemExist = await this.checkIfItemExistByPk(record[0].pk);
+    if (itemExist === true)
+      throw new ConflictError(`${record[0].pk} is already exist`);
 
     // prepare primary and related records
     const promisePutRecord = record.map(async (v: Doc) => {

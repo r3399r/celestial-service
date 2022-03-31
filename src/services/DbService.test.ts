@@ -65,14 +65,16 @@ describe('DbService', () => {
 
   describe('createItem', () => {
     it('should work', async () => {
-      mockDynamoDb.query = jest.fn().mockReturnValueOnce(awsMock({ Count: 0 }));
+      mockDynamoDb.getItem = jest.fn().mockReturnValueOnce(awsMock({}));
 
       await dbService.createItem(new TestUserEntity(dummyUser));
       expect(mockDynamoDb.putItem).toBeCalledTimes(4);
     });
 
     it('should fail if item exists', async () => {
-      mockDynamoDb.query = jest.fn().mockReturnValue(awsMock({ Count: 1 }));
+      mockDynamoDb.getItem = jest
+        .fn()
+        .mockReturnValue(awsMock({ Item: { a: 1 } }));
 
       await expect(() =>
         dbService.createItem(new TestUserEntity(dummyUser))
@@ -82,10 +84,10 @@ describe('DbService', () => {
     it('should fail if create twice', async () => {
       const newUser = new TestUserEntity(dummyUser);
 
-      mockDynamoDb.query = jest
+      mockDynamoDb.getItem = jest
         .fn()
-        .mockReturnValueOnce(awsMock({ Count: 0 }))
-        .mockReturnValueOnce(awsMock({ Count: 1 }));
+        .mockReturnValueOnce(awsMock({}))
+        .mockReturnValueOnce(awsMock({ Item: { a: 1 } }));
 
       await dbService.createItem(newUser);
       await expect(() => dbService.createItem(newUser)).rejects.toThrowError(
