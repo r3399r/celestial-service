@@ -2,14 +2,13 @@ import { DynamoDB } from 'aws-sdk';
 import {
   AttributeMap,
   Converter,
-  GetItemInput,
   PutItemInput,
   QueryInput,
 } from 'aws-sdk/clients/dynamodb';
 import { inject, injectable } from 'inversify';
 import { ConflictError, InternalServerError, NotFoundError } from 'src/error';
 import { Doc } from 'src/model/DbBase';
-import { data2Record, record2Data } from 'src/util/DbHelper';
+import { data2Record } from 'src/util/DbHelper';
 import { differenceBy, intersectionByAndDifference } from 'src/util/setTheory';
 
 /**
@@ -22,14 +21,7 @@ export class DbService {
   private readonly tableName: string = `celestial-db-${process.env.ENVR}`;
   private readonly alias: string = process.env.ALIAS ?? 'undefined';
 
-  // save data in local to reduce query times {pk::sk => data}
-  private readonly cache: Map<string, Doc> = new Map();
-
   private async checkIfItemExist(pk: string): Promise<any> {
-    this.cache.forEach((_v: Doc, key: string) => {
-      if (key.includes(pk)) throw new ConflictError(`${pk} is already exist`);
-    });
-
     const params: QueryInput = {
       TableName: this.tableName,
       Select: 'COUNT',
@@ -48,19 +40,29 @@ export class DbService {
     const record = data2Record(item, this.alias);
     await this.checkIfItemExist(record[0].pk);
 
-    await Promise.all(
-      record.map(async (v: Doc) => {
-        const params: PutItemInput = {
-          TableName: this.tableName,
-          Item: Converter.marshall(v),
-        };
-        this.cache.set(`${v.pk}::${v.sk}`, v);
+    // prepare primary and related records
+    const promisePutRecord = record.map(async (v: Doc) => {
+      const params: PutItemInput = {
+        TableName: this.tableName,
+        Item: Converter.marshall(v),
+      };
 
-        return this.dynamoDb.putItem(params).promise();
+      return this.dynamoDb.putItem(params).promise();
+    });
+
+    // prepare main record
+    const schema = record[0].pk.split('#')[1];
+    const promisePutMain = this.dynamoDb
+      .putItem({
+        TableName: this.tableName,
+        Item: Converter.marshall({
+          pk: `${this.alias}#${schema}`,
+          sk: record[0].pk,
+        }),
       })
-    );
+      .promise();
 
-    await this.updateListItem(record[0].pk);
+    await Promise.all([...promisePutRecord, promisePutMain]);
   }
 
   public async deleteItem(schema: string, id: string): Promise<void> {
@@ -72,123 +74,61 @@ export class DbService {
       this.getRawItemByIndex(primaryKey),
     ]);
 
+    // sk=primaryKey should only in main item & primary item
+    // if not means it is linked by another schema
     if (relatedItem.length > 2)
       throw new ConflictError(
         `${primaryKey} is linked by other schema, please delete linked items first`
       );
 
     await Promise.all([
-      ...mainItem.map(async (v: Doc) => {
-        this.cache.delete(`${v.pk}::${v.sk}`);
-
-        return this.dynamoDb
+      ...mainItem.map(async (v: Doc) =>
+        this.dynamoDb
           .deleteItem({
             TableName: this.tableName,
             Key: { pk: { S: v.pk }, sk: { S: v.sk } },
           })
-          .promise();
-      }),
+          .promise()
+      ),
       ...relatedItem
         .filter((v: Doc) => v.pk !== v.sk)
-        .map(async (v: Doc) => {
-          this.cache.delete(`${v.pk}::${v.sk}`);
-
-          return this.dynamoDb
+        .map(async (v: Doc) =>
+          this.dynamoDb
             .deleteItem({
               TableName: this.tableName,
               Key: { pk: { S: v.pk }, sk: { S: v.sk } },
             })
-            .promise();
-        }),
+            .promise()
+        ),
     ]);
   }
 
   public async putItem<T>(item: T): Promise<void> {
     const newRecord = data2Record(item, this.alias);
-    const [oldRecord, relatedItem] = await Promise.all([
-      this.getRawItem(newRecord[0].pk),
-      this.getRawItemByIndex(newRecord[0].pk),
-    ]);
-    const schema = newRecord[0].pk.split('#')[1];
+    const oldRecord = await this.getRawItem(newRecord[0].pk);
 
     const itemToDelete = differenceBy(oldRecord, newRecord, 'sk');
     const itemToPut = intersectionByAndDifference(newRecord, oldRecord, 'sk');
     const itemToAdd = differenceBy(newRecord, oldRecord, 'sk');
 
     await Promise.all([
-      ...[...itemToPut, ...itemToAdd].map(async (v: Doc) => {
-        this.cache.set(`${v.pk}::${v.sk}`, v);
-
-        return this.dynamoDb
+      ...[...itemToPut, ...itemToAdd].map(async (v: Doc) =>
+        this.dynamoDb
           .putItem({
             TableName: this.tableName,
             Item: Converter.marshall(v),
           })
-          .promise();
-      }),
-      ...itemToDelete.map(async (v: Doc) => {
-        this.cache.delete(`${v.pk}::${v.sk}`);
-
-        return this.dynamoDb
+          .promise()
+      ),
+      ...itemToDelete.map(async (v: Doc) =>
+        this.dynamoDb
           .deleteItem({
             TableName: this.tableName,
             Key: { pk: { S: v.pk }, sk: { S: v.sk } },
           })
-          .promise();
-      }),
-      ...relatedItem
-        .filter((v: Doc) => v.pk !== v.sk && v.pk !== `${this.alias}#${schema}`)
-        .map(async (v: Doc) => {
-          this.cache.set(`${v.pk}::${v.sk}`, v);
-
-          return this.dynamoDb
-            .putItem({
-              TableName: this.tableName,
-              Item: Converter.marshall({
-                ...newRecord[0],
-                pk: v.pk,
-                attribute: v.attribute,
-              }),
-            })
-            .promise();
-        }),
+          .promise()
+      ),
     ]);
-
-    await Promise.all([
-      this.updateListItem<T>(newRecord[0].pk),
-      ...relatedItem
-        .filter((v: Doc) => v.pk !== v.sk && v.pk !== `${this.alias}#${schema}`)
-        .map(async (v: Doc) => this.updateListItem(v.pk)),
-    ]);
-  }
-
-  private async updateListItem<T>(pk: string): Promise<void> {
-    const raw = await this.getRawItem(pk);
-    const rawRelated = await Promise.all(
-      raw
-        .filter((v: Doc) => v.attribute !== undefined)
-        .map(async (v: Doc) => {
-          const relatedSchema = v.sk.split('#')[1];
-          const id = v.sk.split('#')[2];
-
-          return this.getItem<Doc>(relatedSchema, id, true);
-        })
-    );
-    const res = record2Data<T>(raw, rawRelated);
-
-    const alias = pk.split('#')[0];
-    const schema = pk.split('#')[1];
-    const putItemParams: PutItemInput = {
-      TableName: this.tableName,
-      Item: Converter.marshall({ pk: `${alias}#${schema}`, sk: pk, ...res }),
-    };
-    this.cache.set(`${alias}#${schema}::${pk}`, {
-      pk: `${alias}#${schema}`,
-      sk: pk,
-      attribute: undefined,
-      ...res,
-    });
-    await this.dynamoDb.putItem(putItemParams).promise();
   }
 
   private async getRawItem(pk: string): Promise<Doc[]> {
@@ -203,12 +143,7 @@ export class DbService {
     if (raw.Items === undefined || raw.Items.length === 0)
       throw new NotFoundError(`${pk} is not found`);
 
-    return raw.Items.map((v: AttributeMap) => {
-      const res = Converter.unmarshall(v) as Doc;
-      this.cache.set(`${pk}::${res.sk}`, res);
-
-      return res;
-    });
+    return raw.Items.map((v: AttributeMap) => Converter.unmarshall(v) as Doc);
   }
 
   private async getRawItemByIndex(sk: string): Promise<Doc[]> {
@@ -224,54 +159,46 @@ export class DbService {
     if (raw.Items === undefined || raw.Items.length === 0)
       throw new NotFoundError(`${sk} is not found`);
 
-    return raw.Items.map((v: AttributeMap) => {
-      const res = Converter.unmarshall(v) as Doc;
-      this.cache.set(`${res.pk}::${sk}`, res);
-
-      return res;
-    });
+    return raw.Items.map((v: AttributeMap) => Converter.unmarshall(v) as Doc);
   }
 
-  public async getItem<T>(
-    schema: string,
-    id: string,
-    full = false
-  ): Promise<T> {
-    const res = this.cache.get(
-      `${this.alias}#${schema}::${this.alias}#${schema}#${id}`
-    );
-    if (res !== undefined && full) return res as unknown as T;
-    if (res !== undefined && full === false) {
-      const {
-        pk: pkIgnored,
-        sk: skIgnored,
-        attribute: attIgnored,
-        ...itemRest
-      } = res;
-
-      return itemRest as T;
-    }
-
-    const params: GetItemInput = {
+  public async getItem<T>(schema: string, id: string): Promise<T> {
+    const params: QueryInput = {
       TableName: this.tableName,
-      Key: {
-        pk: { S: `${this.alias}#${schema}` },
-        sk: { S: `${this.alias}#${schema}#${id}` },
+      ExpressionAttributeValues: {
+        ':pk': { S: `${this.alias}#${schema}#${id}` },
       },
+      KeyConditionExpression: 'pk = :pk',
     };
-    const raw = await this.dynamoDb.getItem(params).promise();
-    if (raw.Item === undefined)
-      throw new InternalServerError(
-        'getItem result from DynamoDb is undefined'
-      );
+    const raw = await this.dynamoDb.query(params).promise();
+    if (raw.Items === undefined)
+      throw new InternalServerError('query result from DynamoDb is undefined');
 
-    const item = Converter.unmarshall(raw.Item) as Doc;
-    const { pk, sk, attribute: attIgnored, ...rest } = item;
-    this.cache.set(`${pk}::${sk}`, item);
+    const items = raw.Items.map((v) => Converter.unmarshall(v) as Doc);
+    let res = {} as T;
+    items.forEach((v) => {
+      const { pk, sk, attribute, ...rest } = v;
+      if (attribute === undefined) res = { ...res, ...rest };
+      else
+        attribute.split('::').forEach((att) => {
+          const attributeName: keyof T = att.split('#')[0] as keyof T;
+          const attributeType = att.split('#')[1];
+          const relatedId = sk.split('#')[2];
 
-    if (full) return item as unknown as T;
+          if (attributeType === 'one')
+            res = { ...res, [attributeName]: relatedId };
+          else if (attributeType === 'many')
+            if (res[attributeName] === undefined)
+              res = { ...res, [attributeName]: [relatedId] };
+            else {
+              const oldAttribute = res[attributeName];
+              if (Array.isArray(oldAttribute))
+                res = { ...res, [attributeName]: [...oldAttribute, relatedId] };
+            }
+        });
+    });
 
-    return rest as T;
+    return res;
   }
 
   public async getItems<T>(schema: string): Promise<T[]> {
@@ -286,16 +213,14 @@ export class DbService {
     if (raw.Items === undefined)
       throw new InternalServerError('query result from DynamoDb is undefined');
 
-    return raw.Items.map((v: AttributeMap) => {
-      const {
-        pk: pkIgnored,
-        sk: skIgnored,
-        attribute: attIgnored,
-        ...rest
-      } = Converter.unmarshall(v) as Doc;
+    const promiseGet = raw.Items.map((v: AttributeMap) => {
+      const doc = Converter.unmarshall(v) as Doc;
+      const id = doc.sk.split('#')[2];
 
-      return rest as T;
+      return this.getItem<T>(schema, id);
     });
+
+    return await Promise.all(promiseGet);
   }
 
   public async getItemsByIndex<T>(

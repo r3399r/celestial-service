@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import { BadRequestError, InternalServerError } from 'src/error';
+import { BadRequestError } from 'src/error';
 import { Doc } from 'src/model/DbBase';
 
 /**
@@ -19,20 +19,24 @@ export function primaryAttribute(): PropertyDecorator {
   };
 }
 
-export function relatedAttributeOne(): PropertyDecorator {
+export function relatedAttributeOne(schemaName: string): PropertyDecorator {
   return (target: Object, key: string | symbol) => {
     const attributes = Reflect.getMetadata('relatedAttributeOne', target) ?? [];
-    Reflect.defineMetadata('relatedAttributeOne', [...attributes, key], target);
+    Reflect.defineMetadata(
+      'relatedAttributeOne',
+      [...attributes, `${String(key)}::${schemaName}`],
+      target
+    );
   };
 }
 
-export function relatedAttributeMany(): PropertyDecorator {
+export function relatedAttributeMany(schemaName: string): PropertyDecorator {
   return (target: Object, key: string | symbol) => {
     const attributes =
       Reflect.getMetadata('relatedAttributeMany', target) ?? [];
     Reflect.defineMetadata(
       'relatedAttributeMany',
-      [...attributes, key],
+      [...attributes, `${String(key)}::${schemaName}`],
       target
     );
   };
@@ -63,27 +67,41 @@ export function data2Record<T>(
 
   const attributesOne = Reflect.getMetadata('relatedAttributeOne', input) ?? [];
   attributesOne.forEach((v: string) => {
-    const item = input[v as keyof T];
-    delete main[v as keyof T];
-    if (item !== undefined) {
-      const relatedRecord = data2Record(item, alias, key, `${v}#one`)[0];
-      related.push(relatedRecord);
-      skSet.add(relatedRecord.sk);
+    const attributeName = v.split('::')[0];
+    const schema = v.split('::')[1];
+    const attributeValue = input[attributeName as keyof T] as unknown as string;
+    delete main[attributeName as keyof T];
+    if (attributeValue !== undefined) {
+      related.push({
+        pk: key,
+        sk: `${alias}#${schema}#${attributeValue}`,
+        attribute: `${attributeName}#one`,
+      });
+      skSet.add(`${alias}#${schema}#${attributeValue}`);
     }
   });
 
   const attributesMany =
     Reflect.getMetadata('relatedAttributeMany', input) ?? [];
   attributesMany.forEach((v: string) => {
-    const items = input[v as keyof T];
-    delete main[v as keyof T];
-    if (items !== undefined) {
-      if (!Array.isArray(items))
-        throw new BadRequestError(`wrong format. ${v} should be an array`);
-      items.forEach((o: any) => {
-        const relatedRecord = data2Record(o, alias, key, `${v}#many`)[0];
-        related.push(relatedRecord);
-        skSet.add(relatedRecord.sk);
+    const attributeName = v.split('::')[0];
+    const schema = v.split('::')[1];
+    const attributeValue = input[
+      attributeName as keyof T
+    ] as unknown as string[];
+    delete main[attributeName as keyof T];
+    if (attributeValue !== undefined) {
+      if (!Array.isArray(attributeValue))
+        throw new BadRequestError(
+          `wrong format. ${attributeName} should be an array`
+        );
+      attributeValue.forEach((o) => {
+        related.push({
+          pk: key,
+          sk: `${alias}#${schema}#${o}`,
+          attribute: `${attributeName}#many`,
+        });
+        skSet.add(`${alias}#${schema}#${o}`);
       });
     }
   });
@@ -98,39 +116,4 @@ export function data2Record<T>(
   });
 
   return [main, ...mergedRelated];
-}
-
-export function record2Data<T>(record: Doc[], relatedRecord: Doc[]): T {
-  let data: Partial<T> = {};
-  const idAndAttribute: Map<string, string> = new Map();
-
-  record.forEach((v: Doc) => {
-    const { pk: pkIgnored, sk, attribute, ...rest } = v;
-    if (attribute === undefined) data = { ...data, ...rest };
-    else idAndAttribute.set(sk, attribute);
-  });
-
-  relatedRecord
-    .filter((v: Doc) => v.pk.split('#').length === 2)
-    .forEach((v: Doc) => {
-      const { pk: pkIgnored, sk, attribute: attIgnored, ...rest } = v;
-      const attribute = idAndAttribute.get(sk);
-      if (attribute === undefined)
-        throw new InternalServerError(`${sk} not found in the record`);
-      attribute.split('::').forEach((att: string) => {
-        const attributeName: keyof T = att.split('#')[0] as keyof T;
-        const attributeType = att.split('#')[1];
-
-        if (attributeType === 'one') data = { ...data, [attributeName]: rest };
-        else if (data[attributeName] === undefined)
-          data = { ...data, [attributeName]: [rest] };
-        else {
-          const oldAttribute = data[attributeName];
-          if (Array.isArray(oldAttribute))
-            data = { ...data, [attributeName]: [...oldAttribute, rest] };
-        }
-      });
-    });
-
-  return data as T;
 }
