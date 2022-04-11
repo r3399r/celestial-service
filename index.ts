@@ -16,3 +16,4 @@ export {
   NotFoundError,
   UnauthorizedError,
 } from 'src/error';
+export { ModelBase, DbBase } from 'src/model/DbBase';
