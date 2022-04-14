@@ -17,3 +17,4 @@ export {
   UnauthorizedError,
 } from 'src/error';
 export { ModelBase, DbBase } from 'src/model/DbBase';
+export { crypto } from 'src/util/crypto';
