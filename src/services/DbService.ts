@@ -179,7 +179,7 @@ export class DbService {
       KeyConditionExpression: 'pk = :pk',
     };
     const raw = await this.dynamoDb.query(params).promise();
-    if (raw.Items === undefined)
+    if (raw.Items === undefined || raw.Items.length === 0)
       throw new InternalServerError('query result from DynamoDb is undefined');
 
     const items = raw.Items.map((v) => Converter.unmarshall(v) as Doc);
