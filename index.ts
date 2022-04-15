@@ -18,3 +18,4 @@ export {
 } from 'src/error';
 export { ModelBase, DbBase } from 'src/model/DbBase';
 export { crypto } from 'src/util/crypto';
+export { randBase58, randDigit } from 'src/util/rand';
