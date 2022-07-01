@@ -15,4 +15,23 @@ export type LambdaEvent = {
   body: string | null;
   pathParameters: { [key: string]: string } | null;
   queryStringParameters: { [key: string]: string } | null;
+  requestContext: {
+    authorizer?: {
+      claims: {
+        sub: string;
+        email_verified: string;
+        iss: string;
+        'cognito:username': string;
+        origin_jti: string;
+        aud: string;
+        event_id: string;
+        token_use: string;
+        auth_time: string;
+        exp: string;
+        iat: string;
+        jti: string;
+        email: string;
+      };
+    };
+  };
 };
