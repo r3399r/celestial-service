@@ -35,3 +35,25 @@ export type LambdaEvent = {
     };
   };
 };
+
+export type CognitoEvent = {
+  version: string;
+  region: string;
+  userPoolId: string;
+  userName: string;
+  callerContext: {
+    awsSdkVersion: string;
+    clientId: string;
+  };
+  triggerSource: string;
+  request: {
+    userAttributes: {
+      sub: string;
+      email_verified: string;
+      'cognito:user_status': string;
+      'cognito:email_alias': string;
+      email: string;
+    };
+  };
+  response: unknown;
+};

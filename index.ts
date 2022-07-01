@@ -7,7 +7,12 @@ export {
   relatedAttributeMany,
 } from 'src/util/DbHelper';
 export { errorOutput, successOutput } from 'src/util/LambdaOutput';
-export { LambdaOutput, LambdaContext, LambdaEvent } from 'src/model/Lambda';
+export {
+  LambdaOutput,
+  LambdaContext,
+  LambdaEvent,
+  CognitoEvent,
+} from 'src/model/Lambda';
 export { bindings } from 'src/bindings';
 export {
   BadRequestError,
