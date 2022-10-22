@@ -1,4 +1,4 @@
-import { BadRequestError } from 'src/error';
+import { BadRequestError } from './error';
 import { errorOutput, successOutput } from './LambdaOutput';
 
 /**

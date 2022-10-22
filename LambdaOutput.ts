@@ -1,5 +1,5 @@
-import { HttpError } from 'src/error/HttpError';
-import { LambdaOutput } from 'src/model/Lambda';
+import { HttpError } from './error/HttpError';
+import { LambdaOutput } from './model/Lambda';
 
 export function successOutput<T>(res: T): LambdaOutput {
   return {

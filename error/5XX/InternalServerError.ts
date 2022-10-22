@@ -1,4 +1,4 @@
-import { HttpError } from 'src/error/HttpError';
+import { HttpError } from '../HttpError';
 
 /**
  * Internal server error class (500)
