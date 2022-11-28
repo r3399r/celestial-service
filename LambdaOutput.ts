@@ -3,7 +3,7 @@ import { LambdaOutput } from './model/Lambda';
 import { Pagination } from './model/Pagination';
 
 export function successOutput<T>(res: T): LambdaOutput {
-  if ('paginate' in res && 'data' in res) {
+  if (res && 'paginate' in res && 'data' in res) {
     const pagination = res as unknown as Pagination<T>;
     return {
       statusCode: 200,
